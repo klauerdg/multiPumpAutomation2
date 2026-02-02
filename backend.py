@@ -14,7 +14,7 @@ from PySide6.QtCore import QObject, Slot, Signal
 # -------- Serial defaults (TWO ARDUINOS) --------
 # Change these COM ports to match what you see in Arduino IDE / Device Manager.
 DEFAULT_PORT_A = "COM4" if sys.platform.startswith("win") else "/dev/ttyACM0"
-DEFAULT_PORT_B = "COM6" if sys.platform.startswith("win") else "/dev/ttyAC1"
+DEFAULT_PORT_B = "COM6" if sys.platform.startswith("win") else "/dev/ttyACM1"
 
 SERIAL_PORT_A = os.environ.get("PUMP_SERIAL_PORT_A", DEFAULT_PORT_A)
 SERIAL_PORT_B = os.environ.get("PUMP_SERIAL_PORT_B", DEFAULT_PORT_B)
@@ -580,6 +580,7 @@ class QBackend(QObject):
             f"[QBackend] set_calibration(global={p} -> local={local}, "
             f"ul_per_rev={float(ul_per_rev)})  (no-op)"
         )
+
 
 
 
