@@ -33,9 +33,14 @@ Item {
     }
 
     ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+    anchors {
+        top: parent.top
+        left: parent.left
+        right: parent.right
+        margins: 12
+    }
+
+    spacing: 6
 
         RowLayout {
             spacing: 8
@@ -203,8 +208,12 @@ Item {
                 inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
             }
         }
+        Item {
+            Layout.fillHeight: true
+        }
     }
 }
+
 
 
 
