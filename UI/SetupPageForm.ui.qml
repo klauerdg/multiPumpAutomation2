@@ -68,18 +68,19 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 1" }
-            PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 2" }
-            PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 3" }
-            PumpCardForm { id: pc4; pumpId: 4; titleLabel.text: "Pump 4" }
-            PumpCardForm { id: pc5; pumpId: 5; titleLabel.text: "Pump 5" }
-            PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 6" }
-            PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 7" }
+            PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 1" }
+            PumpCardForm { id: pc5; pumpId: 5; titleLabel.text: "Pump 2" }
+            PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 3" }
+            PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 4" }
+            PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 5" }
+            PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 6" }
+            PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 7" }
             PumpCardForm { id: pc8; pumpId: 8; titleLabel.text: "Pump 8" }
-            PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 9" }
+            PumpCardForm { id: pc4; pumpId: 4; titleLabel.text: "Pump 9" }
         }
     }
 }
+
 
 
 
