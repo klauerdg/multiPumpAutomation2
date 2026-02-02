@@ -990,30 +990,65 @@ ApplicationWindow {
             }
 
             if (typeof backend !== "undefined"
-                    && backend.startAutomation
+                    && backend.startWaveForPump
                     && !manual) {
-
-                if (mode === "Constant") {
-                    backend.startAutomation(
-                                automationPumpIds,
-                                "Constant",
-                                "",
-                                minutes,
-                                0.0,
-                                0.0);
-                } else {
-                    backend.startAutomation(
-                                automationPumpIds,
-                                "Pulsatile",
-                                shape,
-                                minutes,
-                                period,
-                                duty);
+            
+                var acCards = [automation.a1, automation.a2, automation.a3,
+                               automation.a4, automation.a5, automation.a6,
+                               automation.a7, automation.a8, automation.a9];
+            
+                for (var i = 0; i < acCards.length; ++i) {
+                    var ac = acCards[i];
+                    if (!ac || !ac.used)
+                        continue;
+            
+                    var pumpId = ac.pumpId;
+                    var cardMode = ac.modeCombo.currentText;
+            
+                    // Constant automation
+                    if (cardMode === "Constant") {
+                        var flow = parseFloat(ac.flowField.text);
+                        if (!isNaN(flow) && flow > 0) {
+                            backend.setFlow(pumpId, flow);
+                        }
+                        continue;
+                    }
+            
+                    // Pulsatile automation
+                    var shape = ac.shapeCombo.currentText;
+                    var period = parseFloat(ac.periodField.text);
+                    if (isNaN(period) || period <= 0)
+                        period = 2.0;
+            
+                    var duty = 0.5;
+                    if (shape === "Square") {
+                        duty = parseFloat(ac.dutyField.text);
+                        if (isNaN(duty) || duty <= 0 || duty >= 100)
+                            duty = 50.0;
+                        duty /= 100.0;
+                    }
+            
+                    var minFlow = parseFloat(ac.minFlowField.text);
+                    var maxFlow = parseFloat(ac.maxFlowField.text);
+            
+                    if (isNaN(minFlow)) minFlow = 0.0;
+                    if (isNaN(maxFlow) || maxFlow <= 0)
+                        continue;
+            
+                    backend.startWaveForPump(
+                        pumpId,
+                        shape,
+                        period,
+                        duty,
+                        minFlow,
+                        maxFlow
+                    );
                 }
             }
         });
     }
 }
+
 
 
 
