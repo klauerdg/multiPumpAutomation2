@@ -1007,9 +1007,9 @@ ApplicationWindow {
             
                     // Constant automation
                     if (cardMode === "Constant") {
-                        var flow = parseFloat(ac.flowField.text);
+                        var flow = parseFloat(ac.baseFlowLabel.text);
                         if (!isNaN(flow) && flow > 0) {
-                            backend.setFlow(pumpId, flow);
+                            backend.set_Flow(pumpId, flow);
                         }
                         continue;
                     }
@@ -1032,8 +1032,7 @@ ApplicationWindow {
                     var maxFlow = parseFloat(ac.maxFlowField.text);
             
                     if (isNaN(minFlow)) minFlow = 0.0;
-                    if (isNaN(maxFlow) || maxFlow <= 0)
-                        continue;
+                    if (isNaN(maxFlow) || maxFlow <= 0) maxFlow= parseFloat(ac.baseFlowLabel.text);
             
                     backend.startWaveForPump(
                         pumpId,
@@ -1048,6 +1047,7 @@ ApplicationWindow {
         });
     }
 }
+
 
 
 
