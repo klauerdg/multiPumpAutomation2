@@ -26,6 +26,15 @@ ApplicationWindow {
     property double automationStepMinutes: 0.0
     property bool automationStepTriggered: false
 
+    property var autoIds:      []
+    property var autoModes:    []
+    property var autoShapes:   []
+    property var autoMins:     []
+    property var autoPeriods:  []
+    property var autoDuties:   []
+    property var autoMinFlows: []
+    property var autoMaxFlows: []
+    property bool automationPending: false
     /* ===================== Small helpers ===================== */
 
     function pad(n) {
@@ -819,7 +828,11 @@ ApplicationWindow {
                     backend.set_flow(pid, f);   // µL/min directly
                 }
             }
-
+            if (automationPending) {
+                backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
+                                autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
+                automationPending = false;   // consume it so it doesn't re-fire on next start
+            }
             if (!runTimer.running)
                 runTimer.start();
         });
@@ -923,76 +936,47 @@ ApplicationWindow {
             var acCards = [automation.a1, automation.a2, automation.a3,
                            automation.a4, automation.a5, automation.a6,
                            automation.a7, automation.a8, automation.a9];
-            var pIds = [], 
-            modes = [], 
-            shapes = [], 
-            mins = [],
-            periods = [], 
-            duties = [], 
-            minFlows = [], 
-            maxFlows = [];
+            
+
+            autoIds = []; autoModes = [];  autoShapes = [];
+            autoMins = []; autoPeriods = []; autoDuties = [];
+            autoMinFlows = []; autoMaxFlows = [];
             
             var ac = null;
             for (var j = 0; j < acCards.length; ++j) {
-                if (acCards[j] && acCards[j].used) {
-                    ac = acCards[j];
-                    var pumpId = j+1;
-                    var cardMode = ac.modeCombo.currentText;
-                    var cardMinutes = parseFloat(ac.totalMinutesField.text);
-                    if (isNaN(cardMinutes) || cardMinutes <= 0) cardMinutes = 5.0;
-                    var cardShape = "", cardPeriod = 0.0, cardDuty = 0.0;
-                    if (cardMode === "Pulsatile") {
-                        cardShape = ac.shapeCombo.currentText;
-                        cardPeriod = parseFloat(ac.periodField.text) || 2.0;
-                        if (cardShape === "Square") {
-                            cardDuty = (parseFloat(ac.dutyField.text) || 50.0) / 100.0;
-                        }
+                var ac = acCards[j];
+                if (!ac || !ac.used) continue;
+                ac = acCards[j];
+                var pumpId = j+1;
+                var cardMode = ac.modeCombo.currentText;
+                var cardMinutes = parseFloat(ac.totalMinutesField.text);
+                if (isNaN(cardMinutes) || cardMinutes <= 0) cardMinutes = 5.0;                    var cardShape = "", cardPeriod = 0.0, cardDuty = 0.0;
+                if (cardMode === "Pulsatile") {
+                    cardShape = ac.shapeCombo.currentText;
+                    cardPeriod = parseFloat(ac.periodField.text) || 2.0;
+                    if (cardShape === "Square") {
+                        cardDuty = (parseFloat(ac.dutyField.text) || 50.0) / 100.0;                      
                     }
+                }
                 
                 var cardMin = parseFloat(ac.minFlowField.text);
                 var cardMax = parseFloat(ac.maxFlowField.text);
                 if (isNaN(cardMin)) cardMin = 0.0;
                 if (isNaN(cardMax) || cardMax <= 0) cardMax = parseFloat(ac.baseFlowLabel.text) || 0.0;
-                pIds.push(pumpId);
-                modes.push(cardMode);
-                shapes.push(cardShape);
-                mins.push(cardMinutes);
-                periods.push(cardPeriod);
-                duties.push(cardDuty);
-                minFlows.push(cardMin);
-                maxFlows.push(cardMax);
+
+
+                autoIds.push(pumpId);
+                autoModes.push(cardMode);
+                autoShapes.push(cardShape);
+                autoMins.push(cardMinutes);
+                autoPeriods.push(cardPeriod);
+                autoDuties.push(cardDuty);
+                autoMinFlows.push(cardMin);
+                autoMaxFlows.push(cardMax);
                 }
-            }
+                automationPending = !manual && autoIds.length > 0;
+            
 
-            if (pIds.length > 0 && !manual) {
-                backend.startAutomation(pIds, modes, shapes, mins, periods, duties, minFlows, maxFlows);
-            }
-        }
+        });
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
