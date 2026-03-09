@@ -440,71 +440,27 @@ class QBackend(QObject):
             self.paused_flows.pop(p, None)
 
     # ---------- Automation (legacy, still supported) ----------
-
-    @Slot("QVariantList", str, str, float, float, float)
-    def startAutomation(self, pumpsVar, mode, shape, minutes, period, dutyFraction):
+    @Slot("QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList")
+    def startAutomation(self, pumpIds, modes, shapes, minutes, periods, dutyFractions, minFlows, maxFlows):
         """
-        Original Automation entry-point. Kept for compatibility with your
-        existing Main.qml.
-
-        - pumpsVar: list of pump IDs (1..9 in UI; mapped across two Arduinos)
-        - mode: "Constant" or "Pulsatile"
-        - shape: "Square" or "Sinusoidal" (for Pulsatile)
-        - minutes: total run time (UI uses this only for timer/labels)
-        - period: period in seconds (for Pulsatile)
-        - dutyFraction: for Square, UI passes 0..1 fraction here
-
-        For "Constant": Run tab's Start button already calls set_flow()
-        For "Pulsatile": we start a wave that goes from 0 .. last_flow[p]
-        for each pump (so old behavior still works even without min/max).
+        All list args are parallel arrays indexed by pump position.
+        pumpIds:      [1, 2, 4]         - which pumps to run
+        modes:        ["Constant", "Pulsatile", "Constant"]
+        shapes:       ["", "Square", ""]
+        minutes:      [5.0, 5.0, 3.0]
+        periods:      [0.0, 2.0, 0.0]
+        dutyFractions:[0.0, 0.5, 0.0]
+        minFlows:     [0.0, 10.0, 0.0]
+        maxFlows:     [60.0, 60.0, 40.0]
         """
-        try:
-            pumps = [int(p) for p in pumpsVar]
-        except Exception:
-            pumps = []
-        print(
-            f"[QBackend] startAutomation(pumps={pumps}, mode={mode}, "
-            f"shape={shape}, minutes={minutes}, period={period}, dutyFraction={dutyFraction})"
-        )
-
-        mode = str(mode)
-
-        if mode.lower().startswith("constant"):
-            # Constant runs are handled by Run tab -> set_flow + timer in QML
-            print("[QBackend] Constant automation: backend will not modify flows here.")
-            return
-
-        # Only do something special for Pulsatile
-        if not mode.lower().startswith("pulsatile"):
-            print("[QBackend] Unknown automation mode, ignoring.")
-            return
-
-        for p in pumps:
-            base = self.last_flows.get(p, 0.0)
-            if base <= 0:
-                print(f"[QBackend]  -> pump {p} has no base flow set; skipping wave")
-                continue
-
-            link, local = self._route_pump(p)
-            if not link:
-                continue
-
-            print(
-                f"[QBackend]  -> starting LEGACY wave on pump {p} (local {local}): "
-                f"shape={shape}, period={period}s, dutyFraction={dutyFraction}, "
-                f"min=0, max={base} µL/min"
+    
+        for i, pumpId in enumerate(pumpIds):
+            self.startWaveForPump(
+                pumpId, shapes[i],
+                periods[i], dutyFractions[i],
+                minFlows[i], maxFlows[i]
             )
-
-            # legacy behavior: 0 .. base
-            link.start_wave(
-                pump=local,
-                shape=shape,
-                period_sec=period,
-                duty_fraction=dutyFraction,
-                min_flow_ul_min=0.0,
-                max_flow_ul_min=base,
-            )
-
+    
     # ---------- NEW: per-pump pulsatile with min/max ----------
 
     @Slot(int, str, float, float, float, float)
