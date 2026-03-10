@@ -811,11 +811,23 @@ ApplicationWindow {
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
 
+            var acCards = [automation.a1, automation.a2, automation.a3,
+                           automation.a4, automation.a5, automation.a6,
+                           automation.a7, automation.a8, automation.a9];
+
+            if (automationPending) {
+                backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
+                                autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);    
+            }
+
             if (typeof backend !== "undefined" && backend.set_flow) {
                 for (var i = 0; i < runCards.length; ++i) {
                     var c = runCards[i];
                     if (!c || !c.visible)
                         continue;
+                        
+                    var ac = acCards[j];
+                    if (ac || ac.used) continue;
 
                     var pid = pumpIdFromRunCard(c);
                     if (pid <= 0)
@@ -828,11 +840,7 @@ ApplicationWindow {
                     backend.set_flow(pid, f);   // µL/min directly
                 }
             }
-            if (automationPending) {
-                backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
-                                autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
-                automationPending = false;   // consume it so it doesn't re-fire on next start
-            }
+            
             if (!runTimer.running)
                 runTimer.start();
         });
@@ -973,10 +981,10 @@ ApplicationWindow {
                 autoDuties.push(cardDuty);
                 autoMinFlows.push(cardMin);
                 autoMaxFlows.push(cardMax);
-                }
-                automationPending = !manual && autoIds.length > 0;
+            }
+            automationPending = !manual && autoIds.length > 0;
             
 
         });
     }
-
+}
