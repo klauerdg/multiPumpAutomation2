@@ -334,39 +334,93 @@ ApplicationWindow {
                 columnSpacing: 10
 
                 Label { text: "Pump 1"; font.pixelSize: 11 }
-                TextField { id: cal1; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal1
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 2"; font.pixelSize: 11 }
-                TextField { id: cal2; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal2
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 3"; font.pixelSize: 11 }
-                TextField { id: cal3; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal3
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 4"; font.pixelSize: 11 }
-                TextField { id: cal4; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal4
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 5"; font.pixelSize: 11 }
-                TextField { id: cal5; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal5
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 6"; font.pixelSize: 11 }
-                TextField { id: cal6; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal6
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 7"; font.pixelSize: 11 }
-                TextField { id: cal7; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal7
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 8"; font.pixelSize: 11 }
-                TextField { id: cal8; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal8
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
 
                 Label { text: "Pump 9"; font.pixelSize: 11 }
-                TextField { id: cal9; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
+                TextField {
+                    id: cal9
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 11
+                    validator: DoubleValidator { bottom: 0; decimals: 5 }
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
                 Item {}
             }
         }
