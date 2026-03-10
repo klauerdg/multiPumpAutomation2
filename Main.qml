@@ -19,11 +19,14 @@ ApplicationWindow {
     // Run-tab timer seconds
     property int elapsedSec: 0
 
-    // Automation timing / step info for Run tab
-    property double automationTotalMinutes: 0.0
+    // Per-pump automation state (Option A)
+    property var pumpEndSec: ({})       // pumpId -> end time in elapsed seconds
+    property var pumpFinished: ({})     // pumpId -> bool
+    property var pumpSummaryText: ({})  // pumpId -> static summary string e.g. "Constant • 5.0 min"
+
+    // Legacy scalar kept only for manual-run "Automation stopped" message
     property bool automationFinished: false
     property bool automationHasStep: false
-    property double automationStepMinutes: 0.0
     property bool automationStepTriggered: false
 
     property var autoIds:      []
@@ -35,10 +38,18 @@ ApplicationWindow {
     property var autoMinFlows: []
     property var autoMaxFlows: []
     property bool automationPending: false
+
     /* ===================== Small helpers ===================== */
 
     function pad(n) {
         return (n < 10 ? "0" : "") + n;
+    }
+
+    function formatRemaining(sec) {
+        // Formats seconds into M:SS (no hours needed for typical run lengths)
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        return m + ":" + pad(s);
     }
 
     function getPumpFlow(pumpCard) {
@@ -95,7 +106,7 @@ ApplicationWindow {
 
             c.opacity = 0.5;
             if (c.infoLabel && c.infoLabel.text.indexOf("Run complete") === -1)
-                c.infoLabel.text += " \u2022 Run complete";
+                c.infoLabel.text += " • Run complete";
         }
     }
 
@@ -249,10 +260,9 @@ ApplicationWindow {
         id: calibrationSettings
         fileName: "calibration.ini"
         category: "Calibration"
-        property string perPumpJson: ""   // JSON: [c1, c2, ..., c9]
+        property string perPumpJson: ""
     }
 
-    // runtime array of 9 factors
     property var pumpCalFactors: (function () {
         try {
             var arr = JSON.parse(calibrationSettings.perPumpJson);
@@ -324,120 +334,65 @@ ApplicationWindow {
                 columnSpacing: 10
 
                 Label { text: "Pump 1"; font.pixelSize: 11 }
-                TextField {
-                    id: cal1; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal1; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 2"; font.pixelSize: 11 }
-                TextField {
-                    id: cal2; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal2; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 3"; font.pixelSize: 11 }
-                TextField {
-                    id: cal3; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal3; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 4"; font.pixelSize: 11 }
-                TextField {
-                    id: cal4; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal4; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 5"; font.pixelSize: 11 }
-                TextField {
-                    id: cal5; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal5; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 6"; font.pixelSize: 11 }
-                TextField {
-                    id: cal6; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal6; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 7"; font.pixelSize: 11 }
-                TextField {
-                    id: cal7; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal7; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 8"; font.pixelSize: 11 }
-                TextField {
-                    id: cal8; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal8; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
 
                 Label { text: "Pump 9"; font.pixelSize: 11 }
-                TextField {
-                    id: cal9; Layout.preferredWidth: 80; font.pixelSize: 11
-                    validator: DoubleValidator { bottom: 0; decimals: 5 }
-                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
-                }
+                TextField { id: cal9; Layout.preferredWidth: 80; font.pixelSize: 11; validator: DoubleValidator { bottom: 0; decimals: 5 }; inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers }
                 Item {}
             }
         }
 
         onOpened: {
-            // populate fields with current values
             var arr = pumpCalFactors;
-            cal1.text = "" + arr[0];
-            cal2.text = "" + arr[1];
-            cal3.text = "" + arr[2];
-            cal4.text = "" + arr[3];
-            cal5.text = "" + arr[4];
-            cal6.text = "" + arr[5];
-            cal7.text = "" + arr[6];
-            cal8.text = "" + arr[7];
-            cal9.text = "" + arr[8];
+            cal1.text = "" + arr[0]; cal2.text = "" + arr[1]; cal3.text = "" + arr[2];
+            cal4.text = "" + arr[3]; cal5.text = "" + arr[4]; cal6.text = "" + arr[5];
+            cal7.text = "" + arr[6]; cal8.text = "" + arr[7]; cal9.text = "" + arr[8];
         }
 
         onAccepted: {
-            // read back; keep old value if field is empty or invalid
             var old = pumpCalFactors;
             var next = [];
 
             function upd(fieldText, idx) {
                 var t = fieldText.trim();
-                if (t.length === 0) {
-                    next.push(old[idx]);   // keep old
-                    return;
-                }
+                if (t.length === 0) { next.push(old[idx]); return; }
                 var v = parseFloat(t);
-                if (isNaN(v) || v <= 0)
-                    next.push(old[idx]);
-                else
-                    next.push(v);
+                if (isNaN(v) || v <= 0) next.push(old[idx]);
+                else next.push(v);
             }
 
-            upd(cal1.text, 0);
-            upd(cal2.text, 1);
-            upd(cal3.text, 2);
-            upd(cal4.text, 3);
-            upd(cal5.text, 4);
-            upd(cal6.text, 5);
-            upd(cal7.text, 6);
-            upd(cal8.text, 7);
-            upd(cal9.text, 8);
+            upd(cal1.text, 0); upd(cal2.text, 1); upd(cal3.text, 2);
+            upd(cal4.text, 3); upd(cal5.text, 4); upd(cal6.text, 5);
+            upd(cal7.text, 6); upd(cal8.text, 7); upd(cal9.text, 8);
 
             pumpCalFactors = next;
             savePumpCalibration();
@@ -445,13 +400,10 @@ ApplicationWindow {
         }
     }
 
-    function openCalibrationDialog() {
-        calibrationDialog.open();
-    }
+    function openCalibrationDialog() { calibrationDialog.open(); }
 
     /* ===================== Automation helpers ===================== */
 
-    // copy Setup -> Automation
     function populateAutomationFromSetup() {
         var setupCards = [setup.pump1, setup.pump2, setup.pump3,
                           setup.pump4, setup.pump5, setup.pump6,
@@ -461,30 +413,25 @@ ApplicationWindow {
                          automation.a4, automation.a5, automation.a6,
                          automation.a7, automation.a8, automation.a9];
 
-        // Clear automation cards
-        for (var j = 0; j < autoCards.length; ++j) {
-            var ac0 = autoCards[j];
-            ac0.used = false;
-        }
+        for (var j = 0; j < autoCards.length; ++j)
+            autoCards[j].used = false;
 
         automationPumpIds = [];
         var firstUsedIndex = -1;
 
         for (var i = 0; i < setupCards.length; ++i) {
             var sc = setupCards[i];
-            if (!sc || !sc.flowField)
-                continue;
+            if (!sc || !sc.flowField) continue;
 
             var f = parseFloat(sc.flowField.text);
             if (!isNaN(f) && f > 0) {
-                var acard = autoCards[i];     // same index as pump
+                var acard = autoCards[i];
                 acard.used = true;
                 acard.titleLabel.text = sc.titleLabel.text;
                 acard.baseFlowLabel.text = sc.flowField.text + " µL/min";
 
-                // Defaults
-                acard.modeCombo.currentIndex = 0;          // Constant
-                acard.shapeCombo.currentIndex = 0;         // Square
+                acard.modeCombo.currentIndex = 0;
+                acard.shapeCombo.currentIndex = 0;
                 acard.periodField.text = "2.0";
                 acard.dutyField.text = "50";
                 acard.totalMinutesField.text = "5.0";
@@ -493,9 +440,7 @@ ApplicationWindow {
                 acard.stepFlowField.text = sc.flowField.text;
 
                 automationPumpIds.push(i + 1);
-
-                if (firstUsedIndex === -1)
-                    firstUsedIndex = i;
+                if (firstUsedIndex === -1) firstUsedIndex = i;
             }
         }
 
@@ -505,7 +450,6 @@ ApplicationWindow {
         console.log("Automation pumps:", automationPumpIds);
     }
 
-    // Fill Run page from Automation configuration
     function populateRunFromAutomation() {
         var runCards = [run.r1, run.r2, run.r3, run.r4, run.r5, run.r6, run.r7, run.r8, run.r9];
         var autoCards = [automation.a1, automation.a2, automation.a3,
@@ -515,14 +459,12 @@ ApplicationWindow {
         // Clear run cards
         for (var k = 0; k < runCards.length; ++k) {
             var rc0 = runCards[k];
-            if (!rc0)
-                continue;
+            if (!rc0) continue;
             rc0.visible = false;
             rc0.selectCheck.checked = false;
             rc0.setFlowValue.text = "0.00";
             rc0.ppsLabel.text = "0";
-            if (rc0.infoLabel)
-                rc0.infoLabel.text = "";
+            if (rc0.infoLabel) rc0.infoLabel.text = "";
             rc0.opacity = 1.0;
             rc0.objectName = "";
         }
@@ -530,77 +472,73 @@ ApplicationWindow {
         var slot = 0;
         var isManual = automation.skipAutomationCheck && automation.skipAutomationCheck.checked;
 
+        // Clear per-pump summary text for fresh run
+        pumpSummaryText = {};
+
         for (var i = 0; i < autoCards.length && slot < runCards.length; ++i) {
             var ac = autoCards[i];
-            if (!ac || !ac.used)
-                continue;
+            if (!ac || !ac.used) continue;
 
             var rc = runCards[slot++];
             rc.visible = true;
             rc.titleLabel.text = ac.titleLabel.text;
 
-            // Parse base flow from "X.XX µL/min"
             var baseFlowText = ac.baseFlowLabel.text.split(" ")[0];
             var f = parseFloat(baseFlowText);
-            if (isNaN(f))
-                f = 0.0;
+            if (isNaN(f)) f = 0.0;
             rc.setFlowValue.text = f.toFixed(2);
 
-            // Pump ID:  matches automationPumpIds
             var pumpId = (i < automationPumpIds.length) ? automationPumpIds[i] : (i + 1);
             rc.objectName = "pumpId:" + pumpId;
 
-            // Compute pps using calibration
             var factor = calibrationForPumpId(pumpId);
             var pps = factor > 0 ? (f / factor) : 0.0;
             rc.ppsLabel.text = pps.toFixed(0);
 
-            // Info string
+            // Build summary string
             var mode = ac.modeCombo.currentText;
             var summary = "";
 
             if (isManual) {
+                // Manual: static label, no countdown
                 if (mode === "Constant") {
-                    summary = "Manual mode \u2013 Constant \u2022 No time limit";
+                    summary = "Manual • Constant • No time limit";
                 } else {
-                    var shapeM = ac.shapeCombo.currentText;
-                    summary = "Manual mode \u2013 " + shapeM + " \u2022 No time limit";
+                    summary = "Manual • " + ac.shapeCombo.currentText + " • No time limit";
                 }
-
+                // Don't store in pumpSummaryText — timer tick will skip manual pumps
             } else {
                 var minutes = parseFloat(ac.totalMinutesField.text);
-                if (isNaN(minutes) || minutes <= 0)
-                    minutes = 0.0;
+                if (isNaN(minutes) || minutes <= 0) minutes = 0.0;
 
                 if (mode === "Constant") {
-                    summary = "Constant \u2022 " + minutes.toFixed(1) + " min";
+                    summary = "Constant • " + minutes.toFixed(1) + " min";
 
                     if (ac.stepEnabledCheck.checked) {
                         var stepT = parseFloat(ac.stepMinutesField.text);
                         var stepF = parseFloat(ac.stepFlowField.text);
                         if (!isNaN(stepT) && !isNaN(stepF) && stepT > 0) {
-                            summary += " \u2022 Change to " +
-                                       stepF.toFixed(2) + " µL/min at " +
-                                       stepT.toFixed(1) + " min";
+                            summary += " • Change to " + stepF.toFixed(2) +
+                                       " µL/min at " + stepT.toFixed(1) + " min";
                         }
                     }
-
                 } else {
-                    var shape2 = ac.shapeCombo.currentText;
-                    var period2 = parseFloat(ac.periodField.text);
-                    if (isNaN(period2) || period2 <= 0)
-                        period2 = 2.0;
+                    var shape2   = ac.shapeCombo.currentText;
+                    var period2  = parseFloat(ac.periodField.text);
+                    if (isNaN(period2) || period2 <= 0) period2 = 2.0;
 
-                    summary = shape2 + " pulsatile \u2022 " +
-                              minutes.toFixed(1) + " min \u2022 " +
+                    summary = shape2 + " pulsatile • " + minutes.toFixed(1) + " min • " +
                               period2.toFixed(1) + " s period";
 
                     if (shape2 === "Square") {
                         var duty = parseFloat(ac.dutyField.text);
                         if (!isNaN(duty))
-                            summary += " \u2022 " + duty.toFixed(1) + "% duty";
+                            summary += " • " + duty.toFixed(1) + "% duty";
                     }
                 }
+
+                // Store static summary for countdown display
+                pumpSummaryText[pumpId] = summary;
             }
 
             rc.infoLabel.text = summary;
@@ -622,21 +560,18 @@ ApplicationWindow {
         anchors.fill: parent
         currentIndex: tabs.currentIndex
 
-        // ---- Setup page ----
         SetupPageForm {
             id: setup
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        // ---- Automation page ----
         AutomationPageForm {
             id: automation
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        // ---- Run page ----
         RunPageForm {
             id: run
             Layout.fillWidth: true
@@ -651,91 +586,120 @@ ApplicationWindow {
         interval: 1000
         repeat: true
         running: false
+
         onTriggered: {
-            // --- update big timer ---
+            // --- 1. Update global clock ---
             elapsedSec += 1;
             var h = Math.floor(elapsedSec / 3600);
             var m = Math.floor((elapsedSec % 3600) / 60);
             var s = elapsedSec % 60;
             run.runTimeLabel.text = pad(h) + ":" + pad(m) + ":" + pad(s);
 
-            // --- per-pump step changes (constant mode) ---
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
-            var marker = "Change to ";
 
+            // --- 2. Per-pump step changes (constant mode, unchanged logic) ---
+            var marker = "Change to ";
             for (var i = 0; i < runCards.length; ++i) {
                 var c = runCards[i];
-                if (!c || !c.visible || !c.infoLabel)
-                    continue;
+                if (!c || !c.visible || !c.infoLabel) continue;
 
                 var text = c.infoLabel.text;
-
                 var idxMarker = text.indexOf(marker);
-                if (idxMarker === -1)
-                    continue;
-
-                if (text.indexOf("Flow changed to ") !== -1)
-                    continue;
+                if (idxMarker === -1) continue;
+                if (text.indexOf("Flow changed to ") !== -1) continue;
 
                 var idxAt  = text.indexOf(" at ", idxMarker + marker.length);
                 var idxMin = text.indexOf(" min", idxAt);
-                if (idxAt === -1 || idxMin === -1)
-                    continue;
+                if (idxAt === -1 || idxMin === -1) continue;
 
-                var flowStr = text.substring(idxMarker + marker.length, idxAt).trim();
-                var timeStr = text.substring(idxAt + 4, idxMin).trim();
-
+                var flowStr  = text.substring(idxMarker + marker.length, idxAt).trim();
+                var timeStr  = text.substring(idxAt + 4, idxMin).trim();
                 var stepMinutes = parseFloat(timeStr);
-                if (isNaN(stepMinutes) || stepMinutes <= 0)
-                    continue;
-
-                if (elapsedSec < stepMinutes * 60)
-                    continue;
+                if (isNaN(stepMinutes) || stepMinutes <= 0) continue;
+                if (elapsedSec < stepMinutes * 60) continue;
 
                 var flowVal = parseFloat(flowStr);
                 if (!isNaN(flowVal)) {
-                    if (c.setFlowValue)
-                        c.setFlowValue.text = flowVal.toFixed(2);
+                    if (c.setFlowValue) c.setFlowValue.text = flowVal.toFixed(2);
 
                     if (c.ppsLabel) {
                         var pid2_forPps = pumpIdFromRunCard(c);
                         var factor2 = calibrationForPumpId(pid2_forPps);
-                        var pps2 = factor2 > 0 ? (flowVal / factor2) : 0.0;
-                        c.ppsLabel.text = pps2.toFixed(0);
+                        c.ppsLabel.text = (factor2 > 0 ? (flowVal / factor2) : 0.0).toFixed(0);
                     }
 
                     if (typeof backend !== "undefined" && backend.set_flow) {
                         var pid2 = pumpIdFromRunCard(c);
-                        if (pid2 > 0)
-                            backend.set_flow(pid2, flowVal);
+                        if (pid2 > 0) backend.set_flow(pid2, flowVal);
                     }
                 }
 
                 var tag = "Flow changed to " + flowStr + " at " + stepMinutes.toFixed(1) + " min";
-                c.infoLabel.text = text + " \u2022 " + tag;
-
+                c.infoLabel.text = text + " • " + tag;
                 run.statusLabel.text = "Flow changed at " + stepMinutes.toFixed(1) + " min.";
             }
 
-            // --- Automation finished indicator (timed runs) ---
-            if (!automationFinished &&
-                automationTotalMinutes > 0 &&
-                elapsedSec >= automationTotalMinutes * 60) {
+            // --- 3. Per-pump countdown and completion ---
+            var timedPumpIds = Object.keys(pumpEndSec);
 
-                automationFinished = true;
-                runTimer.stop();
+            if (timedPumpIds.length > 0) {
+                var allDone = true;
 
-                if (typeof backend !== "undefined" && backend.stopAll)
-                    backend.stopAll();
+                for (var j = 0; j < runCards.length; ++j) {
+                    var rc = runCards[j];
+                    if (!rc || !rc.visible) continue;
 
-                run.statusLabel.text = "Automation complete.";
-                markAutomationCompleteOnRunCards();
+                    var pid = pumpIdFromRunCard(rc);
+                    if (pid <= 0) continue;
+
+                    // Skip pumps not in pumpEndSec (e.g. manual pumps)
+                    if (!(pid in pumpEndSec)) continue;
+
+                    if (pumpFinished[pid]) continue;  // already done
+
+                    allDone = false;  // at least one still running
+
+                    var endSec  = pumpEndSec[pid];
+                    var remaining = endSec - elapsedSec;
+                    var baseText = pumpSummaryText[pid] || "";
+
+                    if (remaining <= 0) {
+                        // Pump's time is up
+                        pumpFinished[pid] = true;
+                        rc.opacity = 0.5;
+                        rc.infoLabel.text = baseText + " • Run complete";
+
+                        if (typeof backend !== "undefined" && backend.stop)
+                            backend.stop(pid);
+
+                        console.log("Pump", pid, "automation complete");
+                    } else {
+                        // Update countdown display
+                        rc.infoLabel.text = baseText + " • " + formatRemaining(remaining) + " remaining";
+                    }
+                }
+
+                // Re-check: are ALL timed pumps now finished?
+                var finalCheck = true;
+                for (var k = 0; k < timedPumpIds.length; ++k) {
+                    if (!pumpFinished[parseInt(timedPumpIds[k])]) {
+                        finalCheck = false;
+                        break;
+                    }
+                }
+
+                if (finalCheck) {
+                    runTimer.stop();
+                    automationFinished = true;
+                    run.statusLabel.text = "Automation complete.";
+                    console.log("All pumps finished — timer stopped");
+                }
             }
         }
     }
 
-    // On-screen keyboard for touch use
+    // On-screen keyboard
     InputPanel {
         id: kb
         z: 9999
@@ -764,98 +728,88 @@ ApplicationWindow {
             app.populateAutomationFromSetup();
             elapsedSec = 0;
             run.runTimeLabel.text = "00:00:00";
-            tabs.currentIndex = 1;   // go to Automation tab
+            tabs.currentIndex = 1;
         });
         setup.savePresetButton.clicked.connect(app.handleSavePreset);
         setup.loadPresetButton.clicked.connect(app.handleLoadPreset);
         if (setup.calibrationButton)
             setup.calibrationButton.clicked.connect(app.openCalibrationDialog);
 
-        // Prime buttons: toggle full-speed priming
+        // Prime buttons
         var setupCards = [setup.pump1, setup.pump2, setup.pump3,
                           setup.pump4, setup.pump5, setup.pump6,
                           setup.pump7, setup.pump8, setup.pump9];
 
         for (var i = 0; i < setupCards.length; ++i) {
             var card = setupCards[i];
-            if (!card || !card.primeButton)
-                continue;
+            if (!card || !card.primeButton) continue;
 
             card.priming = false;
-
             card.primeButton.clicked.connect((function (c) {
                 return function () {
                     var pid = c.pumpId;
-                    if (pid <= 0)
-                        return;
-
+                    if (pid <= 0) return;
                     c.priming = !c.priming;
                     console.log("Prime toggle for pump", pid, "->", c.priming);
-
-                    if (typeof backend === "undefined")
-                        return;
-
-                    if (c.priming) {
-                        if (backend.prime)
-                            backend.prime(pid);
-                    } else {
-                        if (backend.stop)
-                            backend.stop(pid);
-                    }
-                }
+                    if (typeof backend === "undefined") return;
+                    if (c.priming) { if (backend.prime) backend.prime(pid); }
+                    else           { if (backend.stop)  backend.stop(pid);  }
+                };
             })(card));
         }
 
-        // Run buttons
+        // ---- Run: Start button ----
         run.startButton.clicked.connect(function () {
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
 
-            var acCards = [automation.a1, automation.a2, automation.a3,
-                           automation.a4, automation.a5, automation.a6,
-                           automation.a7, automation.a8, automation.a9];
-
+            // Send pulsatile/automation commands for timed pumps
             if (automationPending) {
+                automationFinished = false;
                 backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
-                                autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);    
+                                        autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
             }
 
+            // Send constant-flow commands for all visible run cards
+            // (covers both manual pumps and timed constant-mode pumps)
             if (typeof backend !== "undefined" && backend.set_flow) {
                 for (var i = 0; i < runCards.length; ++i) {
                     var c = runCards[i];
-                    if (!c || !c.visible)
-                        continue;
-                        
-                    var ac = acCards[j];
-                    if (ac || ac.used) continue;
+                    if (!c || !c.visible) continue;
 
                     var pid = pumpIdFromRunCard(c);
-                    if (pid <= 0)
-                        continue;
+                    if (pid <= 0) continue;
 
                     var f = parseFloat(c.setFlowValue.text);
-                    if (isNaN(f) || f <= 0)
-                        continue;
+                    if (isNaN(f) || f <= 0) continue;
 
-                    backend.set_flow(pid, f);   // µL/min directly
+                    backend.set_flow(pid, f);
                 }
             }
-            
+
             if (!runTimer.running)
                 runTimer.start();
         });
 
+        // ---- Run: Pause button ----
         run.pauseButton.clicked.connect(function () {
             runTimer.stop();
             if (typeof backend !== "undefined" && backend.pauseAll)
                 backend.pauseAll();
         });
 
+        // ---- Run: Stop button ----
         run.stopButton.clicked.connect(function () {
             runTimer.stop();
             elapsedSec = 0;
             run.runTimeLabel.text = "00:00:00";
             pausedPumpIds = [];
+
+            // Clear per-pump state
+            pumpEndSec    = {};
+            pumpFinished  = {};
+            pumpSummaryText = {};
+
             if (typeof backend !== "undefined" && backend.stopAll)
                 backend.stopAll();
 
@@ -870,12 +824,12 @@ ApplicationWindow {
 
             automationFinished = true;
             automationStepTriggered = false;
-            run.statusLabel.text = (automationTotalMinutes === 0.0)
+            run.statusLabel.text = (Object.keys(pumpEndSec).length === 0 && !automationPending)
                     ? "Manual run stopped."
                     : "Automation stopped.";
         });
 
-        // Pause selected
+        // ---- Run: Pause selected ----
         run.pauseSelectedButton.clicked.connect(function () {
             var ids = selectedRunPumpIds();
             console.log("Pause selected pumps:", ids);
@@ -884,8 +838,7 @@ ApplicationWindow {
                             run.r5, run.r6, run.r7, run.r8, run.r9];
             for (var j = 0; j < runCards.length; ++j) {
                 var c3 = runCards[j];
-                if (!c3 || !c3.visible || !c3.selectCheck.checked)
-                    continue;
+                if (!c3 || !c3.visible || !c3.selectCheck.checked) continue;
                 var pid = pumpIdFromRunCard(c3);
                 if (ids.indexOf(pid) !== -1) {
                     c3.opacity = 0.4;
@@ -900,7 +853,7 @@ ApplicationWindow {
                 backend.pausePumps(ids);
         });
 
-        // Resume selected
+        // ---- Run: Resume selected ----
         run.resumeSelectedButton.clicked.connect(function () {
             var ids = selectedRunPumpIds();
             console.log("Resume selected pumps:", ids);
@@ -909,16 +862,14 @@ ApplicationWindow {
                             run.r5, run.r6, run.r7, run.r8, run.r9];
             for (var j = 0; j < runCards.length; ++j) {
                 var c4 = runCards[j];
-                if (!c4 || !c4.visible || !c4.selectCheck.checked)
-                    continue;
+                if (!c4 || !c4.visible || !c4.selectCheck.checked) continue;
                 var pid = pumpIdFromRunCard(c4);
                 if (ids.indexOf(pid) !== -1) {
                     c4.opacity = 1.0;
                     if (c4.infoLabel)
                         c4.infoLabel.text = c4.infoLabel.text.replace(" (paused)", "");
                     var idx = pausedPumpIds.indexOf(pid);
-                    if (idx !== -1)
-                        pausedPumpIds.splice(idx, 1);
+                    if (idx !== -1) pausedPumpIds.splice(idx, 1);
                 }
             }
 
@@ -926,12 +877,11 @@ ApplicationWindow {
                 backend.resumePumps(ids);
         });
 
-        // Automation start: populate Run + call backend
+        // ---- Automation: Start Automation button ----
         automation.startAutomationButton.clicked.connect(function () {
-            if (automationPumpIds.length === 0)
-                return;
+            if (automationPumpIds.length === 0) return;
 
-            console.log("Start Automation clicked (Automation page)");
+            console.log("Start Automation clicked");
 
             var manual = automation.skipAutomationCheck.checked;
 
@@ -944,34 +894,37 @@ ApplicationWindow {
             var acCards = [automation.a1, automation.a2, automation.a3,
                            automation.a4, automation.a5, automation.a6,
                            automation.a7, automation.a8, automation.a9];
-            
 
             autoIds = []; autoModes = [];  autoShapes = [];
             autoMins = []; autoPeriods = []; autoDuties = [];
             autoMinFlows = []; autoMaxFlows = [];
-            
-            var ac = null;
+
+            // Reset per-pump timing state
+            var newEndSec = {};
+            pumpFinished  = {};
+
             for (var j = 0; j < acCards.length; ++j) {
                 var ac = acCards[j];
                 if (!ac || !ac.used) continue;
-                ac = acCards[j];
-                var pumpId = j+1;
-                var cardMode = ac.modeCombo.currentText;
+
+                var pumpId    = j + 1;
+                var cardMode  = ac.modeCombo.currentText;
                 var cardMinutes = parseFloat(ac.totalMinutesField.text);
-                if (isNaN(cardMinutes) || cardMinutes <= 0) cardMinutes = 5.0;                    var cardShape = "", cardPeriod = 0.0, cardDuty = 0.0;
+                if (isNaN(cardMinutes) || cardMinutes <= 0) cardMinutes = 5.0;
+
+                var cardShape = "", cardPeriod = 0.0, cardDuty = 0.0;
                 if (cardMode === "Pulsatile") {
-                    cardShape = ac.shapeCombo.currentText;
+                    cardShape  = ac.shapeCombo.currentText;
                     cardPeriod = parseFloat(ac.periodField.text) || 2.0;
-                    if (cardShape === "Square") {
-                        cardDuty = (parseFloat(ac.dutyField.text) || 50.0) / 100.0;                      
-                    }
+                    if (cardShape === "Square")
+                        cardDuty = (parseFloat(ac.dutyField.text) || 50.0) / 100.0;
                 }
-                
+
                 var cardMin = parseFloat(ac.minFlowField.text);
                 var cardMax = parseFloat(ac.maxFlowField.text);
                 if (isNaN(cardMin)) cardMin = 0.0;
-                if (isNaN(cardMax) || cardMax <= 0) cardMax = parseFloat(ac.baseFlowLabel.text) || 0.0;
-
+                if (isNaN(cardMax) || cardMax <= 0)
+                    cardMax = parseFloat(ac.baseFlowLabel.text) || 0.0;
 
                 autoIds.push(pumpId);
                 autoModes.push(cardMode);
@@ -981,10 +934,17 @@ ApplicationWindow {
                 autoDuties.push(cardDuty);
                 autoMinFlows.push(cardMin);
                 autoMaxFlows.push(cardMax);
-            }
-            automationPending = !manual && autoIds.length > 0;
-            
 
+                // Build per-pump end time (skip for manual runs)
+                if (!manual)
+                    newEndSec[pumpId] = Math.round(cardMinutes * 60);
+            }
+
+            pumpEndSec = newEndSec;
+            automationPending = !manual && autoIds.length > 0;
+            automationFinished = false;
+
+            console.log("pumpEndSec:", JSON.stringify(pumpEndSec));
         });
     }
 }
