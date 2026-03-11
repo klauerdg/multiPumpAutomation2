@@ -12,24 +12,20 @@ from serial.tools import list_ports
 from PySide6.QtCore import QObject, Slot, Signal
 
 # -------- Serial defaults (TWO ARDUINOS) --------
-# Change these COM ports to match what you see in Arduino IDE / Device Manager.
 DEFAULT_PORT_A = "COM4" if sys.platform.startswith("win") else "/dev/ttyACM0"
 DEFAULT_PORT_B = "COM6" if sys.platform.startswith("win") else "/dev/ttyACM1"
 
 SERIAL_PORT_A = os.environ.get("PUMP_SERIAL_PORT_A", DEFAULT_PORT_A)
 SERIAL_PORT_B = os.environ.get("PUMP_SERIAL_PORT_B", DEFAULT_PORT_B)
+SERIAL_PORT   = SERIAL_PORT_A
 
-# Backward-compatible name (used as default in PumpLink)
-SERIAL_PORT = SERIAL_PORT_A
-
-BAUD = 115200
-OPEN_RETRY_SEC = 2.0
+BAUD            = 115200
+OPEN_RETRY_SEC  = 2.0
 
 
 class PumpLink:
     """
     Low-level serial link to a single Arduino running the RAMPS pump firmware.
-    Responsible ONLY for sending JSON commands and reading back lines.
     """
 
     def __init__(self, port: str = SERIAL_PORT, baud: int = BAUD):
@@ -43,10 +39,8 @@ class PumpLink:
     # ---------- Port management ----------
 
     def open(self) -> bool:
-        """Open serial port, retrying until success or stop flag."""
         if self.ser and self.ser.is_open:
             return True
-
         while not self._stop:
             try:
                 print(f"[PumpLink] Opening {self.port} @ {self.baud}…")
@@ -88,28 +82,18 @@ class PumpLink:
             except Exception as e:
                 print(f"[PumpLink] write error on {self.port}: {e}")
 
-    # ---------- Public API used by QBackend ----------
+    # ---------- Public API ----------
 
     def set_flow(self, pump: int, ul_per_min: float):
-        """
-        Constant flow command:
-        Arduino expects: {"pump": N, "flow": F}
-        """
         self._send({"pump": int(pump), "flow": float(ul_per_min)})
 
     def prime(self, pump: int):
-        """
-        Prime ON (continuous until explicit stop):
-        Arduino expects: {"prime": N}
-        """
         self._send({"prime": int(pump)})
 
     def stop(self, pump: int):
-        """Stop a single pump."""
         self._send({"stop": int(pump)})
 
     def stop_all(self):
-        """Stop all pumps."""
         self._send({"stop_all": True})
 
     def start_wave(
@@ -122,84 +106,42 @@ class PumpLink:
         max_flow_ul_min: Optional[float] = None,
         base_flow_ul_min: Optional[float] = None,
     ):
-        """
-        Pulsatile wave command.
-
-        Arduino firmware expects:
-
-          {
-            "wave": {
-              "pump":      N,
-              "shape":     "Square" | "Sinusoidal" | "off",
-              "period":    T_seconds,
-              "duty":      D_percent,        # 0..100, only used for Square
-              "min_flow":  Fmin_ul_per_min,
-              "max_flow":  Fmax_ul_per_min
-            }
-          }
-
-        This helper is flexible:
-
-        - If min/max are provided, we send those.
-        - If only base_flow_ul_min is provided, we treat:
-            min_flow = 0
-            max_flow = base_flow_ul_min
-          (this keeps old “0..base” behavior working).
-        """
-        pump = int(pump)
-        shape = str(shape)
+        pump       = int(pump)
+        shape      = str(shape)
         period_sec = float(period_sec) if period_sec > 0 else 1.0
 
-        # Convert duty fraction (0..1) to percent (0..100) for Arduino
         duty_fraction = float(duty_fraction)
-        if duty_fraction <= 0:
-            duty_fraction = 0.5
-        if duty_fraction >= 1:
-            duty_fraction = 0.99
+        if duty_fraction <= 0:  duty_fraction = 0.5
+        if duty_fraction >= 1:  duty_fraction = 0.99
         duty_percent = duty_fraction * 100.0
 
-        # Derive min/max if only base_flow was given
         if min_flow_ul_min is None and max_flow_ul_min is None and base_flow_ul_min is not None:
             min_flow_ul_min = 0.0
             max_flow_ul_min = float(base_flow_ul_min)
 
-        # Final sanity
-        if min_flow_ul_min is None:
-            min_flow_ul_min = 0.0
-        if max_flow_ul_min is None:
-            max_flow_ul_min = min_flow_ul_min
+        if min_flow_ul_min is None: min_flow_ul_min = 0.0
+        if max_flow_ul_min is None: max_flow_ul_min = min_flow_ul_min
 
         min_flow_ul_min = max(0.0, float(min_flow_ul_min))
         max_flow_ul_min = max(0.0, float(max_flow_ul_min))
         if max_flow_ul_min < min_flow_ul_min:
-            # swap if user accidentally inverted them
             min_flow_ul_min, max_flow_ul_min = max_flow_ul_min, min_flow_ul_min
 
-        cmd = {
+        self._send({
             "wave": {
-                "pump": pump,
-                "shape": shape,
-                "period": period_sec,
-                "duty": duty_percent,
+                "pump":     pump,
+                "shape":    shape,
+                "period":   period_sec,
+                "duty":     duty_percent,
                 "min_flow": min_flow_ul_min,
                 "max_flow": max_flow_ul_min,
             }
-        }
-        self._send(cmd)
+        })
 
     def wave_off(self, pump: int, fallback_flow: float = 0.0):
-        """
-        Turn off pulsatile mode for a pump, optionally setting a constant flow.
-
-        Implemented as a special case of start_wave with shape="off".
-        """
         self.start_wave(
-            pump=pump,
-            shape="off",
-            period_sec=1.0,
-            duty_fraction=0.5,
-            min_flow_ul_min=0.0,
-            max_flow_ul_min=float(fallback_flow),
+            pump=pump, shape="off", period_sec=1.0, duty_fraction=0.5,
+            min_flow_ul_min=0.0, max_flow_ul_min=float(fallback_flow),
         )
 
     # ---------- RX loop ----------
@@ -219,8 +161,7 @@ class PumpLink:
                     if not line:
                         continue
                     try:
-                        txt = line.decode("utf-8", "ignore")
-                        print(f"[PumpLink] RX({self.port}, raw): {txt}")
+                        print(f"[PumpLink] RX({self.port}, raw): {line.decode('utf-8', 'ignore')}")
                     except Exception:
                         print(f"[PumpLink] RX({self.port}, bytes): {line!r}")
             except Exception as e:
@@ -236,33 +177,54 @@ class QBackend(QObject):
     """
     QObject wrapper exported to QML as 'backend'.
 
-    Updated to support TWO Arduinos with the same public API:
+    Arduino A: pumps 1, 4, 5, 7, 8
+    Arduino B: pumps 2, 3, 6, 9
 
-      - Arduino A: pumps 1, 4, 5, 7, 8
-      - Arduino B: pumps 2, 3, 6, 9
-
-    Each Arduino still runs firmware that expects local pumps 1..5.
-    This class maps GLOBAL pump IDs -> (which PumpLink, local pump ID).
+    Calibration factors are set from QML via setCalibrationFactors().
+    Every flow value sent to the Arduino is multiplied by the matching
+    per-pump calibration factor before transmission.
     """
 
     connectionChanged = Signal(bool)
-    lastErrorChanged = Signal(str)
+    lastErrorChanged  = Signal(str)
 
-    # Global → local pump mapping for each Arduino
     PUMP_MAP_A: Dict[int, int] = {1: 1, 4: 2, 5: 3, 7: 4, 8: 5}
     PUMP_MAP_B: Dict[int, int] = {2: 1, 3: 2, 6: 3, 9: 4}
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # One PumpLink per Arduino
         self.linkA = PumpLink(port=SERIAL_PORT_A, baud=BAUD)
         self.linkB = PumpLink(port=SERIAL_PORT_B, baud=BAUD)
 
-        # last constant flow commanded for each GLOBAL pump (µL/min)
-        self.last_flows: Dict[int, float] = {}
-        # saved flows for "pause selected" so we can resume
+        self.last_flows:   Dict[int, float] = {}
         self.paused_flows: Dict[int, float] = {}
         self._last_error = ""
+
+        # 9 calibration factors indexed by global pump id (1-based)
+        # default 1.0 = no scaling until QML provides real values
+        self._cal_factors: Dict[int, float] = {i: 1.0 for i in range(1, 10)}
+
+    # ---------- Calibration ----------
+
+    @Slot("QVariantList")
+    def setCalibrationFactors(self, factors):
+        """
+        Receive a list of 9 calibration factors from QML (index 0 = pump 1).
+        Each factor converts µL/min → the unit the Arduino expects
+        (i.e. actual_flow_sent = requested_flow * factor).
+        """
+        for i, f in enumerate(factors):
+            pump_id = i + 1
+            try:
+                val = float(f)
+                self._cal_factors[pump_id] = val if val > 0 else 1.0
+            except (TypeError, ValueError):
+                self._cal_factors[pump_id] = 1.0
+        print(f"[QBackend] calibration factors updated: {self._cal_factors}")
+
+    def _cal(self, global_pump_id: int) -> float:
+        """Return calibration factor for a global pump id."""
+        return self._cal_factors.get(int(global_pump_id), 1.0)
 
     # ---------- Internal helpers ----------
 
@@ -273,10 +235,6 @@ class QBackend(QObject):
             self.lastErrorChanged.emit(msg)
 
     def _route_pump(self, pump: int):
-        """
-        Given a GLOBAL pump ID (1..9), return (link, local_pump_id).
-        Returns (None, None) if invalid.
-        """
         p = int(pump)
         if p in self.PUMP_MAP_A:
             return self.linkA, self.PUMP_MAP_A[p]
@@ -294,7 +252,7 @@ class QBackend(QObject):
     def open(self) -> bool:
         okA = self.linkA.open()
         okB = self.linkB.open()
-        ok = okA and okB
+        ok  = okA and okB
         self.connectionChanged.emit(ok)
         if not ok:
             self._set_error("Failed to open one or both serial ports")
@@ -308,14 +266,8 @@ class QBackend(QObject):
             link.close()
         self.connectionChanged.emit(False)
 
-    # ---------- Port discovery (optional) ----------
-
     @Slot()
     def refreshPorts(self):
-        """
-        Just prints available ports to the console.
-        You can later expose this to QML if you want a dropdown.
-        """
         ports = list_ports.comports()
         print("[QBackend] Available serial ports:")
         for p in ports:
@@ -327,7 +279,6 @@ class QBackend(QObject):
     @Slot(int)
     @Slot(float)
     def prime(self, pump):
-        """Prime ON: UI toggles, Arduino runs until stop()."""
         p = int(pump)
         link, local = self._route_pump(p)
         if not link:
@@ -339,26 +290,20 @@ class QBackend(QObject):
     @Slot(int)
     @Slot(float)
     def stop(self, pump):
-        """Stop a single pump and clear any wave for it."""
         p = int(pump)
         link, local = self._route_pump(p)
         if not link:
             return
         print(f"[QBackend] stop(global={p} -> local={local})")
         link.stop(local)
-        # Also ensure pulsatile is off for that pump
         link.wave_off(local, 0.0)
-        # don't clear last_flows; we may still want them for resume
 
     @Slot()
     def stopAll(self):
-        """Stop all pumps and clear all waves."""
         print("[QBackend] stopAll()")
         for link in self._all_links():
             link.stop_all()
-        # we intentionally keep last_flows so resume could use it if needed
 
-    # Alias for QML (some of your code uses stopAll, some stop_all)
     @Slot()
     def stop_all(self):
         self.stopAll()
@@ -368,46 +313,40 @@ class QBackend(QObject):
     @Slot(int, int)
     def set_flow(self, pump, ul_per_min):
         """
-        Constant flow set; also remembers for pause/resume and pulsatile base.
-        Uses GLOBAL pump IDs and routes them to the right Arduino.
+        Send a constant flow. The requested flow is multiplied by the
+        pump's calibration factor before being sent to the Arduino.
         """
-        p = int(pump)
-        f = float(ul_per_min)
+        p   = int(pump)
+        f   = float(ul_per_min)
+        cal = self._cal(p)
+        f_cal = f * cal
+
         link, local = self._route_pump(p)
         if not link:
             return
-        print(f"[QBackend] set_flow(global={p} -> local={local}, flow={f} µL/min)")
-        self.last_flows[p] = f
-        # If there is any previous wave on this pump, Arduino code will
-        # treat a new constant command as override until another wave command.
-        link.set_flow(local, f)
+        print(f"[QBackend] set_flow(global={p} -> local={local}, "
+              f"requested={f} µL/min, cal={cal}, sending={f_cal} µL/min)")
+        self.last_flows[p] = f          # store uncalibrated for resume/display
+        link.set_flow(local, f_cal)
 
-    # ---------- Pause / resume for Run tab ----------
+    # ---------- Pause / resume ----------
 
     @Slot()
     def pauseAll(self):
-        """Pause all by stopping them and saving flows."""
         print("[QBackend] pauseAll()")
-        # Save current last_flows as paused_flows snapshot
         self.paused_flows = dict(self.last_flows)
         for link in self._all_links():
             link.stop_all()
 
-    # for compatibility with existing QML call `backend.pauseAll`
     @Slot()
     def pause_all(self):
         self.pauseAll()
 
     @Slot("QVariantList")
     def pausePumps(self, pumpIds):
-        """
-        Pause a subset of pumps: stop them and save their last flows
-        so resumePumps can restore.
-        """
         ids: List[int] = [int(p) for p in pumpIds]
         print(f"[QBackend] pausePumps(global={ids})")
         for p in ids:
-            # Save flow if we have one
             if p in self.last_flows:
                 self.paused_flows[p] = self.last_flows[p]
             link, local = self._route_pump(p)
@@ -416,52 +355,41 @@ class QBackend(QObject):
 
     @Slot("QVariantList")
     def resumePumps(self, pumpIds):
-        """
-        Resume previously paused pumps by re-sending their last flows.
-        If we don't have a saved paused flow, fall back to last_flows.
-        """
         ids: List[int] = [int(p) for p in pumpIds]
         print(f"[QBackend] resumePumps(global={ids})")
         for p in ids:
-            # prefer paused snapshot, else last known constant flow
             flow = self.paused_flows.get(p, self.last_flows.get(p, 0.0))
             if flow > 0:
-                link, local = self._route_pump(p)
-                if not link:
-                    continue
-                print(f"[QBackend]  -> restoring pump {p} to {flow} µL/min (local {local})")
-                link.set_flow(local, flow)
-                self.last_flows[p] = flow
+                self.set_flow(p, flow)   # goes through calibration
             else:
                 print(f"[QBackend]  -> no saved flow for pump {p}, leaving off")
-
-        # clear them out from paused_flows
         for p in ids:
             self.paused_flows.pop(p, None)
 
-    # ---------- Automation (legacy, still supported) ----------
-    @Slot("QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList", "QVariantList")
-    def startAutomation(self, pumpIds, modes, shapes, minutes, periods, dutyFractions, minFlows, maxFlows):
+    # ---------- Automation ----------
+
+    @Slot("QVariantList", "QVariantList", "QVariantList", "QVariantList",
+          "QVariantList", "QVariantList", "QVariantList", "QVariantList")
+    def startAutomation(self, pumpIds, modes, shapes, minutes,
+                        periods, dutyFractions, minFlows, maxFlows):
         """
-        All list args are parallel arrays indexed by pump position.
-        pumpIds:      [1, 2, 4]         - which pumps to run
-        modes:        ["Constant", "Pulsatile", "Constant"]
-        shapes:       ["", "Square", ""]
-        minutes:      [5.0, 5.0, 3.0]
-        periods:      [0.0, 2.0, 0.0]
-        dutyFractions:[0.0, 0.5, 0.0]
-        minFlows:     [0.0, 10.0, 0.0]
-        maxFlows:     [60.0, 60.0, 40.0]
+        Dispatch each pump to the correct command based on its mode:
+          - Constant  → set_flow  (calibrated)
+          - Pulsatile → startWaveForPump  (calibrated inside that method)
         """
-    
         for i, pumpId in enumerate(pumpIds):
-            self.startWaveForPump(
-                pumpId, shapes[i],
-                periods[i], dutyFractions[i],
-                minFlows[i], maxFlows[i]
-            )
-    
-    # ---------- NEW: per-pump pulsatile with min/max ----------
+            mode = str(modes[i])
+            if mode == "Constant":
+                # maxFlows[i] holds the base/target flow for constant mode
+                self.set_flow(int(pumpId), float(maxFlows[i]))
+            else:
+                self.startWaveForPump(
+                    pumpId, shapes[i],
+                    periods[i], dutyFractions[i],
+                    minFlows[i], maxFlows[i]
+                )
+
+    # ---------- Per-pump pulsatile ----------
 
     @Slot(int, str, float, float, float, float)
     def startWaveForPump(
@@ -474,25 +402,19 @@ class QBackend(QObject):
         maxFlow: float,
     ):
         """
-        New API for AutomationPageForm/Main.qml when you want to send
-        a *per-pump* pulsatile configuration including min/max flow.
-
-        QML can call:
-          backend.startWaveForPump(
-              pid,
-              shapeText,        // "Square" or "Sinusoidal"
-              periodSeconds,
-              dutyFraction,     // 0..1, only used for Square
-              minFlowUlPerMin,
-              maxFlowUlPerMin
-          )
+        Send a pulsatile wave command. Both min and max flow values are
+        multiplied by the pump's calibration factor before sending.
         """
-        p = int(pump)
-        shape = str(shape)
-        period_sec = float(period_sec)
+        p            = int(pump)
+        shape        = str(shape)
+        period_sec   = float(period_sec)
         dutyFraction = float(dutyFraction)
-        minFlow = float(minFlow)
-        maxFlow = float(maxFlow)
+        minFlow      = float(minFlow)
+        maxFlow      = float(maxFlow)
+        cal          = self._cal(p)
+
+        minFlow_cal = minFlow * cal
+        maxFlow_cal = maxFlow * cal
 
         link, local = self._route_pump(p)
         if not link:
@@ -501,10 +423,9 @@ class QBackend(QObject):
         print(
             f"[QBackend] startWaveForPump(global={p} -> local={local}, shape={shape}, "
             f"period={period_sec}s, dutyFraction={dutyFraction}, "
-            f"min={minFlow} µL/min, max={maxFlow} µL/min)"
+            f"min={minFlow}->{minFlow_cal} µL/min, max={maxFlow}->{maxFlow_cal} µL/min)"
         )
 
-        # For completeness, remember the "max" as last flow hint
         if maxFlow > 0:
             self.last_flows[p] = maxFlow
 
@@ -513,31 +434,19 @@ class QBackend(QObject):
             shape=shape,
             period_sec=period_sec,
             duty_fraction=dutyFraction,
-            min_flow_ul_min=minFlow,
-            max_flow_ul_min=maxFlow,
+            min_flow_ul_min=minFlow_cal,
+            max_flow_ul_min=maxFlow_cal,
         )
 
-    # ---------- Calibration stub (no-op) ----------
+    # ---------- Calibration stub (kept for QML compatibility) ----------
 
     @Slot("QVariant", "QVariant")
     @Slot(int, float)
     @Slot(int, int)
     def set_calibration(self, pump, ul_per_rev):
-        """
-        Your current Arduino sketch does not use calibration messages.
-        This slot is kept as a harmless stub to avoid QML errors.
-        """
         p = int(pump)
         link, local = self._route_pump(p)
         if not link:
             return
-
-        print(
-            f"[QBackend] set_calibration(global={p} -> local={local}, "
-            f"ul_per_rev={float(ul_per_rev)})  (no-op)"
-        )
-
-
-
-
-
+        print(f"[QBackend] set_calibration(global={p} -> local={local}, "
+              f"ul_per_rev={float(ul_per_rev)})  (no-op)")
