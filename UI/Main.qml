@@ -972,7 +972,11 @@ ApplicationWindow {
                 var cardMax = parseFloat(ac.maxFlowField.text);
                 if (isNaN(cardMin)) cardMin = 0.0;
                 if (isNaN(cardMax) || cardMax <= 0) cardMax = parseFloat(ac.baseFlowLabel.text) || 0.0;
-
+                
+                var maxMin = 0.0;
+                    for (var k = 0; k < autoMins.length; ++k)
+                        if (autoMins[k] > maxMin) maxMin = autoMins[k];
+                automationTotalMinutes = maxMin;
 
                 autoIds.push(pumpId);
                 autoModes.push(cardMode);
