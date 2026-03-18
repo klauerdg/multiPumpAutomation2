@@ -455,11 +455,14 @@ class QBackend(QObject):
         """
     
         for i, pumpId in enumerate(pumpIds):
-            self.startWaveForPump(
-                pumpId, shapes[i],
-                periods[i], dutyFractions[i],
-                minFlows[i], maxFlows[i]
-            )
+            if modes[i] == "Constant":
+                self.set_flow(pumpId, maxFlows[i])
+            else:
+                self.startWaveForPump(
+                    pumpId, shapes[i],
+                    periods[i], dutyFractions[i],
+                    minFlows[i], maxFlows[i]
+                )
     
     # ---------- NEW: per-pump pulsatile with min/max ----------
 

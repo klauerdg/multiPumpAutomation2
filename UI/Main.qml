@@ -547,7 +547,7 @@ ApplicationWindow {
             rc.setFlowValue.text = f.toFixed(2);
 
             // Pump ID:  matches automationPumpIds
-            var pumpId = (i < automationPumpIds.length) ? automationPumpIds[i] : (i + 1);
+            var pumpId = i + 1;
             rc.objectName = "pumpId:" + pumpId;
 
             // Compute pps using calibration
@@ -827,8 +827,8 @@ ApplicationWindow {
                     if (!c || !c.visible)
                         continue;
 
-                    var ac = acCards[j];
-                    if (ac || ac.used) continue;
+                    var ac = acCards[i];
+                    if (!ac || !ac.used) continue;
 
                     var pid = pumpIdFromRunCard(c);
                     if (pid <= 0)
