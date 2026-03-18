@@ -24,6 +24,11 @@ ApplicationWindow {
     property var pumpFinished: ({})     // pumpId -> bool
     property var pumpSummaryText: ({})  // pumpId -> static summary string e.g. "Constant • 5.0 min"
 
+    // Per-pump step-change state
+    property var pumpStepAtSec:  ({})  // pumpId -> elapsedSec when step fires
+    property var pumpStepToFlow: ({})  // pumpId -> new flow value (µL/min) at step
+    property var pumpStepDone:   ({})  // pumpId -> bool, true once step has fired
+
     // Legacy scalar kept only for manual-run "Automation stopped" message
     property bool automationFinished: false
     property bool automationHasStep: false
@@ -596,6 +601,8 @@ ApplicationWindow {
             }
 
             rc.infoLabel.text = summary;
+            if (rc.timerLabel) rc.timerLabel.text = "";
+            if (rc.stepLabel)  rc.stepLabel.text  = "";
             rc.opacity = 1.0;
         }
     }
@@ -652,46 +659,39 @@ ApplicationWindow {
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
 
-            // --- 2. Per-pump step changes (constant mode, unchanged logic) ---
-            var marker = "Change to ";
+            // --- 2. Per-pump step-change countdown and trigger ---
             for (var i = 0; i < runCards.length; ++i) {
                 var c = runCards[i];
-                if (!c || !c.visible || !c.infoLabel) continue;
+                if (!c || !c.visible) continue;
 
-                var text = c.infoLabel.text;
-                var idxMarker = text.indexOf(marker);
-                if (idxMarker === -1) continue;
-                if (text.indexOf("Flow changed to ") !== -1) continue;
+                var spid = pumpIdFromRunCard(c);
+                if (spid <= 0 || !(spid in pumpStepAtSec) || pumpStepDone[spid]) continue;
 
-                var idxAt  = text.indexOf(" at ", idxMarker + marker.length);
-                var idxMin = text.indexOf(" min", idxAt);
-                if (idxAt === -1 || idxMin === -1) continue;
+                var stepAt   = pumpStepAtSec[spid];
+                var stepFlow = pumpStepToFlow[spid];
+                var stepRemaining = stepAt - elapsedSec;
 
-                var flowStr  = text.substring(idxMarker + marker.length, idxAt).trim();
-                var timeStr  = text.substring(idxAt + 4, idxMin).trim();
-                var stepMinutes = parseFloat(timeStr);
-                if (isNaN(stepMinutes) || stepMinutes <= 0) continue;
-                if (elapsedSec < stepMinutes * 60) continue;
+                if (stepRemaining <= 0) {
+                    // Fire the step change
+                    pumpStepDone[spid] = true;
 
-                var flowVal = parseFloat(flowStr);
-                if (!isNaN(flowVal)) {
-                    if (c.setFlowValue) c.setFlowValue.text = flowVal.toFixed(2);
-
+                    if (c.setFlowValue) c.setFlowValue.text = stepFlow.toFixed(2);
                     if (c.ppsLabel) {
-                        var pid2_forPps = pumpIdFromRunCard(c);
-                        var factor2 = calibrationForPumpId(pid2_forPps);
-                        c.ppsLabel.text = (factor2 > 0 ? (flowVal / factor2) : 0.0).toFixed(0);
+                        var factorS = calibrationForPumpId(spid);
+                        c.ppsLabel.text = (factorS > 0 ? stepFlow / factorS : 0.0).toFixed(0);
                     }
+                    if (typeof backend !== "undefined" && backend.set_flow)
+                        backend.set_flow(spid, stepFlow);
 
-                    if (typeof backend !== "undefined" && backend.set_flow) {
-                        var pid2 = pumpIdFromRunCard(c);
-                        if (pid2 > 0) backend.set_flow(pid2, flowVal);
-                    }
+                    if (c.stepLabel)
+                        c.stepLabel.text = "→ Step applied: " + stepFlow.toFixed(2) + " µL/min";
+                    run.statusLabel.text = "Flow step applied.";
+                } else {
+                    // Show countdown to step change
+                    if (c.stepLabel)
+                        c.stepLabel.text = "→ Step in " + formatRemaining(stepRemaining) +
+                                           " → " + stepFlow.toFixed(2) + " µL/min";
                 }
-
-                var tag = "Flow changed to " + flowStr + " at " + stepMinutes.toFixed(1) + " min";
-                c.infoLabel.text = text + " • " + tag;
-                run.statusLabel.text = "Flow changed at " + stepMinutes.toFixed(1) + " min.";
             }
 
             // --- 3. Per-pump countdown and completion ---
@@ -714,23 +714,24 @@ ApplicationWindow {
 
                     allDone = false;  // at least one still running
 
-                    var endSec  = pumpEndSec[pid];
+                    var endSec    = pumpEndSec[pid];
                     var remaining = endSec - elapsedSec;
-                    var baseText = pumpSummaryText[pid] || "";
 
                     if (remaining <= 0) {
                         // Pump's time is up
                         pumpFinished[pid] = true;
                         rc.opacity = 0.5;
-                        rc.infoLabel.text = baseText + " • Run complete";
+                        if (rc.timerLabel) rc.timerLabel.text = "✓ Complete";
+                        if (rc.stepLabel)  rc.stepLabel.text  = "";
 
                         if (typeof backend !== "undefined" && backend.stop)
                             backend.stop(pid);
 
                         console.log("Pump", pid, "automation complete");
                     } else {
-                        // Update countdown display
-                        rc.infoLabel.text = baseText + " • " + formatRemaining(remaining) + " remaining";
+                        // Update countdown display on the card
+                        if (rc.timerLabel)
+                            rc.timerLabel.text = "⏱ " + formatRemaining(remaining) + " remaining";
                     }
                 }
 
@@ -860,9 +861,12 @@ ApplicationWindow {
             pausedPumpIds = [];
 
             // Clear per-pump state
-            pumpEndSec    = {};
-            pumpFinished  = {};
+            pumpEndSec     = {};
+            pumpFinished   = {};
             pumpSummaryText = {};
+            pumpStepAtSec  = {};
+            pumpStepToFlow = {};
+            pumpStepDone   = {};
 
             if (typeof backend !== "undefined" && backend.stopAll)
                 backend.stopAll();
@@ -874,6 +878,8 @@ ApplicationWindow {
                 c2.opacity = 1.0;
                 if (c2.infoLabel)
                     c2.infoLabel.text = c2.infoLabel.text.replace(" (paused)", "");
+                if (c2.timerLabel) c2.timerLabel.text = "";
+                if (c2.stepLabel)  c2.stepLabel.text  = "";
             }
 
             automationFinished = true;
@@ -954,7 +960,9 @@ ApplicationWindow {
             autoMinFlows = []; autoMaxFlows = [];
 
             // Reset per-pump timing state
-            var newEndSec = {};
+            var newEndSec    = {};
+            var newStepAtSec  = {};
+            var newStepToFlow = {};
             pumpFinished  = {};
 
             for (var j = 0; j < acCards.length; ++j) {
@@ -990,11 +998,25 @@ ApplicationWindow {
                 autoMaxFlows.push(cardMax);
 
                 // Build per-pump end time (skip for manual runs)
-                if (!manual)
+                if (!manual) {
                     newEndSec[pumpId] = Math.round(cardMinutes * 60);
+
+                    // Capture step-change data for constant-mode pumps
+                    if (cardMode === "Constant" && ac.stepEnabledCheck.checked) {
+                        var stepT = parseFloat(ac.stepMinutesField.text);
+                        var stepF = parseFloat(ac.stepFlowField.text);
+                        if (!isNaN(stepT) && stepT > 0 && !isNaN(stepF)) {
+                            newStepAtSec[pumpId]  = Math.round(stepT * 60);
+                            newStepToFlow[pumpId] = stepF;
+                        }
+                    }
+                }
             }
 
-            pumpEndSec = newEndSec;
+            pumpEndSec     = newEndSec;
+            pumpStepAtSec  = newStepAtSec;
+            pumpStepToFlow = newStepToFlow;
+            pumpStepDone   = {};
             automationPending = !manual && autoIds.length > 0;
             automationFinished = false;
 

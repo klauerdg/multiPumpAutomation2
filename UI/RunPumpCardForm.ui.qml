@@ -5,13 +5,15 @@ import QtQuick.Layouts 1.15
 Item {
     id: root
     implicitWidth: 260
-    implicitHeight: 120
+    implicitHeight: 160
 
     property alias selectCheck: selectCheck
     property alias titleLabel: titleLabel
     property alias setFlowValue: setFlowValue
     property alias ppsLabel: ppsLabel
     property alias infoLabel: infoLabel
+    property alias timerLabel: timerLabel
+    property alias stepLabel: stepLabel
 
     Rectangle {
         anchors.fill: parent
@@ -77,15 +79,33 @@ Item {
 
         Label {
             id: infoLabel
-            text: ""      // e.g. "Constant • 5.0 min • Change to 22.00 µL/min at 1.0 min • Flow changed..."
+            text: ""      // e.g. "Constant • 5.0 min • Change to 22.00 µL/min at 1.0 min"
             font.pixelSize: 11
             color: "#666"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignLeft
-            // optional: limit lines so it never gets crazy tall
-            // maximumLineCount: 3
-            // elide: Text.ElideRight
+        }
+
+        // Per-pump countdown timer (shown only during automation)
+        Label {
+            id: timerLabel
+            text: ""
+            font.pixelSize: 12
+            font.bold: true
+            color: "#1565c0"           // blue
+            Layout.fillWidth: true
+            visible: text !== ""
+        }
+
+        // Step-change countdown (shown only when step is configured)
+        Label {
+            id: stepLabel
+            text: ""
+            font.pixelSize: 11
+            color: "#e65100"           // orange
+            Layout.fillWidth: true
+            visible: text !== ""
         }
     }
 }
