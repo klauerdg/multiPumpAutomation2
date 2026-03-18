@@ -524,6 +524,7 @@ ApplicationWindow {
         }
 
         var slot = 0;
+        var pumpSlot = 0;   // separate counter into the compact automationPumpIds array
         var isManual = automation.skipAutomationCheck && automation.skipAutomationCheck.checked;
 
         // Clear per-pump summary text for fresh run
@@ -542,7 +543,8 @@ ApplicationWindow {
             if (isNaN(f)) f = 0.0;
             rc.setFlowValue.text = f.toFixed(2);
 
-            var pumpId = (i < automationPumpIds.length) ? automationPumpIds[i] : (i + 1);
+            var pumpId = (pumpSlot < automationPumpIds.length) ? automationPumpIds[pumpSlot] : (i + 1);
+            pumpSlot++;
             rc.objectName = "pumpId:" + pumpId;
 
             var factor = calibrationForPumpId(pumpId);
@@ -824,8 +826,9 @@ ApplicationWindow {
                                         autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
             }
 
-            // Send constant-flow commands for all visible run cards
-            // (covers both manual pumps and timed constant-mode pumps)
+            // Send constant-flow commands for visible run cards.
+            // Skip pulsatile automation pumps — startAutomation() already sent their
+            // wave command, and calling set_flow would cancel the wave.
             if (typeof backend !== "undefined" && backend.set_flow) {
                 for (var i = 0; i < runCards.length; ++i) {
                     var c = runCards[i];
@@ -833,6 +836,11 @@ ApplicationWindow {
 
                     var pid = pumpIdFromRunCard(c);
                     if (pid <= 0) continue;
+
+                    // Skip pulsatile automation pumps
+                    var autoIdx = autoIds.indexOf(pid);
+                    if (automationPending && autoIdx >= 0 && autoModes[autoIdx] === "Pulsatile")
+                        continue;
 
                     var f = parseFloat(c.setFlowValue.text);
                     if (isNaN(f) || f <= 0) continue;
