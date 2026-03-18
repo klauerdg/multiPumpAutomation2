@@ -744,8 +744,12 @@ ApplicationWindow {
                         var remM = Math.floor(remSec / 60);
                         var remS = remSec % 60;
                         pc.timerLabel.text = remM + ":" + pad(remS) + " remaining";
-                    } else {
+                    } else if (!pc.pumpStopped) {
+                        pc.pumpStopped = true;
                         pc.timerLabel.text = "Done";
+                        var stopPid = pumpIdFromRunCard(pc);
+                        if (stopPid > 0 && typeof backend !== "undefined" && backend.stop)
+                            backend.stop(stopPid);
                     }
                 }
 

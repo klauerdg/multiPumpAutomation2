@@ -5,7 +5,7 @@ import QtQuick.Layouts 1.15
 Item {
     id: root
     implicitWidth: 260
-    implicitHeight: 160
+    implicitHeight: 130
 
     property alias selectCheck: selectCheck
     property alias titleLabel: titleLabel
@@ -17,6 +17,7 @@ Item {
 
     property int pumpEndSec: 0       // seconds from run-start when this pump finishes (0 = no limit)
     property int pumpStepSec: -1     // seconds from run-start when step change fires (-1 = none)
+    property bool pumpStopped: false // true once backend.stop() has been called for this pump
 
     Rectangle {
         anchors.fill: parent
@@ -27,8 +28,8 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 4
+        anchors.margins: 5
+        spacing: 2
 
         RowLayout {
             spacing: 4

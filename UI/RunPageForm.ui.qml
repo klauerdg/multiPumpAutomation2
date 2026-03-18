@@ -32,14 +32,14 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 8 * scaleFactor
-        spacing: 6 * scaleFactor
+        anchors.margins: 6 * scaleFactor
+        spacing: 4 * scaleFactor
 
         // Big timer
         Label {
             id: runTimeLabel
             text: "00:00:00"
-            font.pointSize: 26 * scaleFactor
+            font.pointSize: 18 * scaleFactor
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
             Layout.alignment: Qt.AlignHCenter
@@ -99,7 +99,7 @@ Item {
         // Pump grid
         GridLayout {
             columns: 3
-            rowSpacing: 8 * scaleFactor
+            rowSpacing: 5 * scaleFactor
             columnSpacing: 8 * scaleFactor
             Layout.fillWidth: true
             Layout.fillHeight: true
