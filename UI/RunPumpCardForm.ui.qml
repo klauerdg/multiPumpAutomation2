@@ -15,6 +15,9 @@ Item {
     property alias timerLabel: timerLabel
     property alias stepLabel: stepLabel
 
+    property int pumpEndSec: 0       // seconds from run-start when this pump finishes (0 = no limit)
+    property int pumpStepSec: -1     // seconds from run-start when step change fires (-1 = none)
+
     Rectangle {
         anchors.fill: parent
         radius: 8

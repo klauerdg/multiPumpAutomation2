@@ -53,9 +53,9 @@ enum DriverId {DRV_E1=0, DRV_E0, DRV_X, DRV_Y, DRV_Z, DRV_COUNT};
 const DriverId PUMP_MAP[DRV_COUNT] = {DRV_E1, DRV_E0, DRV_X, DRV_Y, DRV_Z};
 
 // Prime / flow mapping
-const float PRIME_SPS            = 250.0f;  // priming speed (steps/s)
-const float FLOW_UL_PER_MIN_MAX  = 60.0f;   // "60 µL/min" -> MAX_SPS
-const float MAX_SPS              = 720.0f;  // steps/s at that max (tune if needed)
+const float PRIME_SPS     = 250.0f;           // priming speed (steps/s)
+const float UL_MIN_TO_PPS = 200.0f / 3.0f;   // conversion: pps per µL/min  (≈ 66.67)
+const float MAX_SPS       = 4000.0f;          // hard cap (≈ 60 µL/min * UL_MIN_TO_PPS)
 
 // ---------- Objects ----------
 AccelStepper steppers[DRV_COUNT] = {
@@ -111,8 +111,7 @@ void setSpeedSps(DriverId d, float sps) {
 void setSpeedForFlow(DriverId d, float flowUlPerMin) {
   float sps = 0.0f;
   if (flowUlPerMin > 0.0f) {
-    sps = (flowUlPerMin / FLOW_UL_PER_MIN_MAX) * MAX_SPS;
-    if (sps < 0.0f)   sps = 0.0f;
+    sps = flowUlPerMin * UL_MIN_TO_PPS;
     if (sps > MAX_SPS) sps = MAX_SPS;
   }
   setSpeedSps(d, sps);

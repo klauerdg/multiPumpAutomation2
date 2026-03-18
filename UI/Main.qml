@@ -605,6 +605,21 @@ ApplicationWindow {
 
             rc.infoLabel.text = summary;
             rc.opacity = 1.0;
+
+            // Per-pump timing so the run-timer can drive countdown labels
+            if (!isManual) {
+                var acMins = parseFloat(ac.totalMinutesField.text);
+                rc.pumpEndSec = (!isNaN(acMins) && acMins > 0) ? Math.round(acMins * 60) : 0;
+                if (mode === "Constant" && ac.stepEnabledCheck.checked) {
+                    var acStepT = parseFloat(ac.stepMinutesField.text);
+                    rc.pumpStepSec = (!isNaN(acStepT) && acStepT > 0) ? Math.round(acStepT * 60) : -1;
+                } else {
+                    rc.pumpStepSec = -1;
+                }
+            } else {
+                rc.pumpEndSec = 0;
+                rc.pumpStepSec = -1;
+            }
         }
     }
 
@@ -717,7 +732,36 @@ ApplicationWindow {
 
                 run.statusLabel.text = "Flow changed at " + stepMinutes.toFixed(1) + " min.";
             }
-            //ToBeFixed - expand this for every pump running automation, don't stop the univeersal run timer
+            // --- per-pump countdown & step-change labels ---
+            for (var pi = 0; pi < runCards.length; ++pi) {
+                var pc = runCards[pi];
+                if (!pc || !pc.visible) continue;
+
+                // Main countdown
+                if (pc.pumpEndSec > 0) {
+                    var remSec = Math.max(0, pc.pumpEndSec - elapsedSec);
+                    if (remSec > 0) {
+                        var remM = Math.floor(remSec / 60);
+                        var remS = remSec % 60;
+                        pc.timerLabel.text = remM + ":" + pad(remS) + " remaining";
+                    } else {
+                        pc.timerLabel.text = "Done";
+                    }
+                }
+
+                // Step-change countdown
+                if (pc.pumpStepSec > 0) {
+                    if (elapsedSec < pc.pumpStepSec) {
+                        var stRem = pc.pumpStepSec - elapsedSec;
+                        var stM = Math.floor(stRem / 60);
+                        var stS = stRem % 60;
+                        pc.stepLabel.text = "Step in " + stM + ":" + pad(stS);
+                    } else {
+                        pc.stepLabel.text = "";   // step already fired
+                    }
+                }
+            }
+
             // --- Automation finished indicator (timed runs) ---
             if (!automationFinished &&
                 automationTotalMinutes > 0 &&
@@ -867,6 +911,8 @@ ApplicationWindow {
                 c2.opacity = 1.0;
                 if (c2.infoLabel)
                     c2.infoLabel.text = c2.infoLabel.text.replace(" (paused)", "");
+                if (c2.timerLabel) c2.timerLabel.text = "";
+                if (c2.stepLabel)  c2.stepLabel.text  = "";
             }
 
             automationFinished = true;
@@ -972,11 +1018,6 @@ ApplicationWindow {
                 var cardMax = parseFloat(ac.maxFlowField.text);
                 if (isNaN(cardMin)) cardMin = 0.0;
                 if (isNaN(cardMax) || cardMax <= 0) cardMax = parseFloat(ac.baseFlowLabel.text) || 0.0;
-                
-                var maxMin = 0.0;
-                    for (var k = 0; k < autoMins.length; ++k)
-                        if (autoMins[k] > maxMin) maxMin = autoMins[k];
-                automationTotalMinutes = maxMin;
 
                 autoIds.push(pumpId);
                 autoModes.push(cardMode);
@@ -987,6 +1028,11 @@ ApplicationWindow {
                 autoMinFlows.push(cardMin);
                 autoMaxFlows.push(cardMax);
             }
+            var maxMin = 0.0;
+            for (var k = 0; k < autoMins.length; ++k)
+                if (autoMins[k] > maxMin) maxMin = autoMins[k];
+            automationTotalMinutes = maxMin;
+
             automationPending = !manual && autoIds.length > 0;
             
 
