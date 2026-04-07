@@ -12,15 +12,20 @@ from serial.tools import list_ports
 from PySide6.QtCore import QObject, Slot, Signal
 
 # -------- Serial defaults (TWO ARDUINOS) --------
-# Change these COM ports to match what you see in Arduino IDE / Device Manager.
-DEFAULT_PORT_A = "COM4" if sys.platform.startswith("win") else "/dev/ttyACM0"
-DEFAULT_PORT_B = "COM6" if sys.platform.startswith("win") else "/dev/ttyACM2"
+# On Linux/Raspberry Pi, persistent udev symlinks are used so port names never change
+# when Arduinos are reconnected or swapped. See /etc/udev/rules.d/99-pumps.rules.
+# Ard1 serial: 0353638323635190C302 -> /dev/ttyArd1
+# Ard2 serial: 03536383136351303293 -> /dev/ttyArd2
+DEFAULT_PORT_ARD1 = "COM4" if sys.platform.startswith("win") else "/dev/ttyArd1"
+DEFAULT_PORT_ARD2 = "COM6" if sys.platform.startswith("win") else "/dev/ttyArd2"
 
-SERIAL_PORT_A = os.environ.get("PUMP_SERIAL_PORT_A", DEFAULT_PORT_A)
-SERIAL_PORT_B = os.environ.get("PUMP_SERIAL_PORT_B", DEFAULT_PORT_B)
+SERIAL_PORT_ARD1 = os.environ.get("PUMP_SERIAL_PORT_ARD1", DEFAULT_PORT_ARD1)
+SERIAL_PORT_ARD2 = os.environ.get("PUMP_SERIAL_PORT_ARD2", DEFAULT_PORT_ARD2)
 
-# Backward-compatible name (used as default in PumpLink)
-SERIAL_PORT = SERIAL_PORT_A
+# Backward-compatible aliases
+SERIAL_PORT_A = SERIAL_PORT_ARD1
+SERIAL_PORT_B = SERIAL_PORT_ARD2
+SERIAL_PORT   = SERIAL_PORT_ARD1
 
 BAUD = 115200
 OPEN_RETRY_SEC = 2.0
