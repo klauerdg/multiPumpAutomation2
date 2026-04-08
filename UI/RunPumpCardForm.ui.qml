@@ -7,23 +7,31 @@ Item {
     implicitWidth: 260
     implicitHeight: 130
 
-    property alias selectCheck: selectCheck
-    property alias titleLabel: titleLabel
+    property alias titleLabel:  titleLabel
     property alias setFlowValue: setFlowValue
-    property alias ppsLabel: ppsLabel
-    property alias infoLabel: infoLabel
-    property alias timerLabel: timerLabel
-    property alias stepLabel: stepLabel
+    property alias ppsLabel:    ppsLabel
+    property alias infoLabel:   infoLabel
+    property alias timerLabel:  timerLabel
+    property alias stepLabel:   stepLabel
 
-    property int pumpEndSec: 0       // seconds from run-start when this pump finishes (0 = no limit)
-    property int pumpStepSec: -1     // seconds from run-start when step change fires (-1 = none)
-    property bool pumpStopped: false // true once backend.stop() has been called for this pump
+    property bool selected: false
+    property bool paused: false
+
+    property int pumpEndSec: 0
+    property int pumpStepSec: -1
+    property bool pumpStopped: false
 
     Rectangle {
         anchors.fill: parent
         radius: 8
         color: "#ffffff"
-        border.color: "#cfd8dc"
+        border.color: root.selected ? "#1565c0" : "#cfd8dc"
+        border.width: root.selected ? 2 : 1
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.selected = !root.selected
+        }
     }
 
     ColumnLayout {
@@ -31,91 +39,73 @@ Item {
         anchors.margins: 5
         spacing: 2
 
-        RowLayout {
-            spacing: 4
-            CheckBox { id: selectCheck }
-            Label {
-                id: titleLabel
-                text: "Pump"
-                font.bold: true
-                font.pixelSize: 12
-            }
-            Item { Layout.fillWidth: true }
+        Label {
+            id: titleLabel
+            text: "Pump"
+            font.bold: true
+            font.pixelSize: 12
         }
 
         RowLayout {
             spacing: 4
             Label { text: "Set:"; font.pixelSize: 11 }
-
             Label {
                 id: setFlowValue
                 text: "0.00"
                 font.bold: true
                 font.pixelSize: 11
             }
-
-            Label {
-                text: "µL/min"
-                font.pixelSize: 11
-                color: "#555"
-            }
-
-            Label {
-                text: "•"
-                font.pixelSize: 11
-                color: "#999"
-            }
-
-            Label {
-                text: "pps:"
-                font.pixelSize: 11
-            }
-
+            Label { text: "µL/min"; font.pixelSize: 11; color: "#555" }
+            Label { text: "•"; font.pixelSize: 11; color: "#999" }
+            Label { text: "pps:"; font.pixelSize: 11 }
             Label {
                 id: ppsLabel
                 text: "0"
                 font.bold: true
                 font.pixelSize: 11
             }
-
             Item { Layout.fillWidth: true }
         }
 
         Label {
             id: infoLabel
-            text: ""      // e.g. "Constant • 5.0 min • Change to 22.00 µL/min at 1.0 min"
+            text: ""
             font.pixelSize: 11
             color: "#666"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignLeft
         }
 
-        // Per-pump countdown timer (shown only during automation)
-        Label {
-            id: timerLabel
-            text: ""
-            font.pixelSize: 12
-            font.bold: true
-            color: "#1565c0"           // blue
-            Layout.fillWidth: true
-            visible: text !== ""
+        // Timer row: countdown + "Paused" badge side by side
+        RowLayout {
+            spacing: 6
+            visible: timerLabel.text !== "" || root.paused
+
+            Label {
+                id: timerLabel
+                text: ""
+                font.pixelSize: 12
+                font.bold: true
+                color: "#1565c0"
+                visible: text !== ""
+            }
+
+            Label {
+                text: "Paused"
+                font.pixelSize: 11
+                font.bold: true
+                color: "#e65100"
+                visible: root.paused
+            }
         }
 
-        // Step-change countdown (shown only when step is configured)
         Label {
             id: stepLabel
             text: ""
             font.pixelSize: 11
-            color: "#e65100"           // orange
+            color: "#e65100"
             Layout.fillWidth: true
             visible: text !== ""
         }
     }
 }
-
-
-
-
-
-

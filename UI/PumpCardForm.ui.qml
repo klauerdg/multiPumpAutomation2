@@ -5,7 +5,7 @@ import QtQuick.Layouts 1.15
 Item {
     id: root
     implicitWidth: 320
-    implicitHeight: advMode !== "" ? 185 : 140
+    implicitHeight: 140
 
     property int pumpId: 0
     property bool priming: false

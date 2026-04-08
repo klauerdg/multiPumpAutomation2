@@ -71,8 +71,10 @@ ApplicationWindow {
         ];
 
         for (var i = 0; i < pumps.length; ++i) {
-            if (isPumpSelected(pumps[i]))
-                setPumpFlow(pumps[i], v);
+            if (!isPumpSelected(pumps[i])) continue;
+            setPumpFlow(pumps[i], v);
+            // Revert to simple mode — clear any advanced settings
+            pumps[i].advMode = "";
         }
 
         console.log("Apply to Selected ->", v, "µL/min");
@@ -109,7 +111,7 @@ ApplicationWindow {
         var runCards = [run.r1, run.r2, run.r3, run.r4, run.r5, run.r6, run.r7, run.r8, run.r9];
         for (var i = 0; i < runCards.length; ++i) {
             var c = runCards[i];
-            if (!c || !c.visible || !c.selectCheck.checked)
+            if (!c || !c.visible || !c.selected)
                 continue;
             var pid = pumpIdFromRunCard(c);
             if (pid > 0 && ids.indexOf(pid) === -1)
@@ -452,11 +454,11 @@ ApplicationWindow {
             var rc0 = runCards[k];
             if (!rc0) continue;
             rc0.visible = false;
-            rc0.selectCheck.checked = false;
+            rc0.selected = false;
+            rc0.paused = false;
             rc0.setFlowValue.text = "0.00";
             rc0.ppsLabel.text = "0";
             if (rc0.infoLabel) rc0.infoLabel.text = "";
-            rc0.opacity = 1.0;
             rc0.objectName = "";
             rc0.pumpEndSec = 0;
             rc0.pumpStepSec = -1;
@@ -704,7 +706,7 @@ ApplicationWindow {
                 onClicked: advancedDialog.close()
             }
             Button {
-                text: "Apply to Selected"
+                text: "Apply Advanced Settings"
                 onClicked: {
                     var pumps = [setup.pump1, setup.pump2, setup.pump3,
                                  setup.pump4, setup.pump5, setup.pump6,
@@ -1020,9 +1022,7 @@ ApplicationWindow {
             for (var j = 0; j < runCards.length; ++j) {
                 var c2 = runCards[j];
                 if (!c2) continue;
-                c2.opacity = 1.0;
-                if (c2.infoLabel)
-                    c2.infoLabel.text = c2.infoLabel.text.replace(" (paused)", "");
+                c2.paused = false;
                 if (c2.timerLabel) c2.timerLabel.text = "";
                 if (c2.stepLabel)  c2.stepLabel.text  = "";
             }
@@ -1047,9 +1047,7 @@ ApplicationWindow {
                     continue;
                 var pid = pumpIdFromRunCard(c3);
                 if (ids.indexOf(pid) !== -1) {
-                    c3.opacity = 0.4;
-                    if (c3.infoLabel && c3.infoLabel.text.indexOf("(paused)") === -1)
-                        c3.infoLabel.text += " (paused)";
+                    c3.paused = true;
                     if (pausedPumpIds.indexOf(pid) === -1)
                         pausedPumpIds.push(pid);
                 }
@@ -1072,9 +1070,7 @@ ApplicationWindow {
                     continue;
                 var pid = pumpIdFromRunCard(c4);
                 if (ids.indexOf(pid) !== -1) {
-                    c4.opacity = 1.0;
-                    if (c4.infoLabel)
-                        c4.infoLabel.text = c4.infoLabel.text.replace(" (paused)", "");
+                    c4.paused = false;
                     var idx = pausedPumpIds.indexOf(pid);
                     if (idx !== -1)
                         pausedPumpIds.splice(idx, 1);
