@@ -125,8 +125,13 @@ ApplicationWindow {
     property var presetMap: ({})
 
     function persistPresets() {
-        if (typeof backend !== "undefined" && backend.save_presets)
-            backend.save_presets(JSON.stringify(presetMap));
+        var json = JSON.stringify(presetMap);
+        console.log("persistPresets: keys=" + Object.keys(presetMap).length + " len=" + json.length);
+        if (typeof backend !== "undefined" && backend.save_presets) {
+            backend.save_presets(json);
+        } else {
+            console.log("persistPresets: backend.save_presets not available");
+        }
     }
 
     function readCurrentConfig() {
@@ -184,6 +189,7 @@ ApplicationWindow {
     Dialog {
         id: savePresetDialog
         modal: true
+        closePolicy: Popup.CloseOnEscape
         title: "Save Preset"
         standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -209,6 +215,7 @@ ApplicationWindow {
     Dialog {
         id: loadPresetDialog
         modal: true
+        closePolicy: Popup.CloseOnEscape
         title: "Load Preset"
         standardButtons: Dialog.Ok | Dialog.Cancel
         property int selectedIndex: -1
@@ -318,6 +325,7 @@ ApplicationWindow {
     Dialog {
         id: calibrationDialog
         modal: true
+        closePolicy: Popup.CloseOnEscape
         title: "Per-pump Calibration (µL/min per pps)"
         standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -578,6 +586,7 @@ ApplicationWindow {
     Dialog {
         id: advancedDialog
         modal: true
+        closePolicy: Popup.CloseOnEscape
         title: "Advanced Settings"
         width: 440
         standardButtons: Dialog.NoButton
@@ -750,14 +759,14 @@ ApplicationWindow {
                         card.advTotalMinutes = parseFloat(advTotalMinutesField.text) || 5.0;
                         if (mode === "Constant") {
                             var bf = parseFloat(advBaseFlowField.text);
-                            if (!isNaN(bf) && bf > 0) card.flowField.text = bf.toFixed(2);
+                            if (!isNaN(bf) && bf >= 0) card.flowField.text = bf.toFixed(2);
                             card.advStepEnabled = advStepCheck.checked;
                             card.advStepMinutes = parseFloat(advStepMinField.text)  || 2.0;
                             card.advStepFlow    = parseFloat(advStepFlowField.text) || 0.0;
                         } else {
                             card.advShape   = advShapeCombo.currentText;
                             var mf = parseFloat(advMaxFlowField.text);
-                            if (!isNaN(mf) && mf > 0) card.flowField.text = mf.toFixed(2);
+                            if (!isNaN(mf) && mf >= 0) card.flowField.text = mf.toFixed(2);
                             card.advMaxFlow = isNaN(mf) ? 0.0 : mf;
                             card.advPeriod  = parseFloat(advPeriodField.text)  || 2.0;
                             card.advDuty    = parseFloat(advDutyField.text)    || 50.0;
