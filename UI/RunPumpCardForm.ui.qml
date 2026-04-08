@@ -16,6 +16,7 @@ Item {
 
     property bool selected: false
     property bool paused: false
+    property double rawFlow: 0.0   // actual numeric flow for backend calls (pulsatile uses max flow)
 
     property int pumpEndSec: 0
     property int pumpStepSec: -1

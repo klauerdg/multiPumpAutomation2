@@ -142,10 +142,27 @@ ApplicationWindow {
         var cards = [setup.pump1, setup.pump2, setup.pump3,
                      setup.pump4, setup.pump5, setup.pump6,
                      setup.pump7, setup.pump8, setup.pump9];
-        var flows = [];
-        for (var i = 0; i < cards.length; ++i)
-            flows.push(cards[i].flowField.text);
-        return { flows: flows };
+        var flows = [], modes = [], shapes = [], periods = [], duties = [];
+        var minFlows = [], maxFlows = [], totalMins = [];
+        var stepEnabled = [], stepMins = [], stepFlows = [];
+        for (var i = 0; i < cards.length; ++i) {
+            var c = cards[i];
+            flows.push(c.flowField.text);
+            modes.push(c.advMode);
+            shapes.push(c.advShape);
+            periods.push(c.advPeriod);
+            duties.push(c.advDuty);
+            minFlows.push(c.advMinFlow);
+            maxFlows.push(c.advMaxFlow);
+            totalMins.push(c.advTotalMinutes);
+            stepEnabled.push(c.advStepEnabled);
+            stepMins.push(c.advStepMinutes);
+            stepFlows.push(c.advStepFlow);
+        }
+        return { flows: flows, modes: modes, shapes: shapes, periods: periods,
+                 duties: duties, minFlows: minFlows, maxFlows: maxFlows,
+                 totalMins: totalMins, stepEnabled: stepEnabled,
+                 stepMins: stepMins, stepFlows: stepFlows };
     }
 
     function applyConfig(cfg) {
@@ -154,8 +171,21 @@ ApplicationWindow {
         var cards = [setup.pump1, setup.pump2, setup.pump3,
                      setup.pump4, setup.pump5, setup.pump6,
                      setup.pump7, setup.pump8, setup.pump9];
-        for (var i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i) {
             cards[i].flowField.text = cfg.flows[i];
+            if (cfg.modes) {
+                cards[i].advMode         = cfg.modes[i]       || "";
+                cards[i].advShape        = cfg.shapes[i]      || "Square";
+                cards[i].advPeriod       = cfg.periods[i]     || 2.0;
+                cards[i].advDuty         = cfg.duties[i]      || 50.0;
+                cards[i].advMinFlow      = cfg.minFlows[i]    || 0.0;
+                cards[i].advMaxFlow      = cfg.maxFlows[i]    || 0.0;
+                cards[i].advTotalMinutes = cfg.totalMins[i]   || 5.0;
+                cards[i].advStepEnabled  = cfg.stepEnabled[i] || false;
+                cards[i].advStepMinutes  = cfg.stepMins[i]    || 2.0;
+                cards[i].advStepFlow     = cfg.stepFlows[i]   || 0.0;
+            }
+        }
     }
 
     ListModel { id: presetNamesModel }
@@ -177,7 +207,9 @@ ApplicationWindow {
             var name = presetNameField.text.trim();
             if (!name.length)
                 return;
-            presetMap[name] = readCurrentConfig();
+            var updated = presetMap;
+            updated[name] = readCurrentConfig();
+            presetMap = updated;   // reassign so QML detects the change
             persistPresets();
             console.log("Saved preset:", name);
         }
@@ -456,6 +488,7 @@ ApplicationWindow {
             rc0.visible = false;
             rc0.selected = false;
             rc0.paused = false;
+            rc0.rawFlow = 0.0;
             rc0.setFlowValue.text = "0.00";
             rc0.ppsLabel.text = "0";
             if (rc0.infoLabel) rc0.infoLabel.text = "";
@@ -483,7 +516,7 @@ ApplicationWindow {
             var rc = runCards[slot++];
             rc.visible = true;
             rc.titleLabel.text = sc.titleLabel.text;
-            rc.setFlowValue.text = f.toFixed(2);
+            rc.rawFlow = f;
             rc.opacity = 1.0;
 
             var pumpId = i + 1;
@@ -505,6 +538,7 @@ ApplicationWindow {
                 rc.pumpStepSec = sc.advStepEnabled ? Math.round(sc.advStepMinutes * 60) : -1;
 
             } else if (mode === "Pulsatile") {
+                rc.setFlowValue.text = sc.advMinFlow.toFixed(2) + " - " + sc.advMaxFlow.toFixed(2);
                 summary = sc.advShape + " pulsatile \u2022 "
                           + sc.advTotalMinutes.toFixed(1) + " min \u2022 "
                           + sc.advPeriod.toFixed(1) + " s period";
@@ -515,10 +549,14 @@ ApplicationWindow {
                 hasPulsatile   = true;
 
             } else {
+                rc.setFlowValue.text = f.toFixed(2);
                 summary = "Manual mode \u2022 No time limit";
                 rc.pumpEndSec  = 0;
                 rc.pumpStepSec = -1;
             }
+
+            if (mode === "Constant")
+                rc.setFlowValue.text = f.toFixed(2);
 
             rc.infoLabel.text = summary;
 
@@ -911,6 +949,13 @@ ApplicationWindow {
     Component.onCompleted: {
         console.log("Main loaded");
 
+        // Reload presets now that Qt.labs.settings has finished loading from disk
+        try {
+            var saved = JSON.parse(presetSettings.presetStore);
+            if (saved && typeof saved === "object")
+                presetMap = saved;
+        } catch(e) {}
+
         if (typeof backend !== "undefined" && backend.refreshPorts)
             backend.refreshPorts();
 
@@ -992,10 +1037,12 @@ ApplicationWindow {
                 for (var i = 0; i < runCards.length; ++i) {
                     var c = runCards[i];
                     if (!c || !c.visible) continue;
+                    // Pulsatile flow is handled by startAutomation; skip set_flow
+                    if (c.infoLabel && c.infoLabel.text.indexOf("pulsatile") !== -1) continue;
                     var pid = pumpIdFromRunCard(c);
                     if (pid <= 0) continue;
-                    var f = parseFloat(c.setFlowValue.text);
-                    if (isNaN(f) || f <= 0) continue;
+                    var f = c.rawFlow;
+                    if (f <= 0) continue;
                     backend.set_flow(pid, f);
                 }
             }
@@ -1043,7 +1090,7 @@ ApplicationWindow {
                             run.r5, run.r6, run.r7, run.r8, run.r9];
             for (var j = 0; j < runCards.length; ++j) {
                 var c3 = runCards[j];
-                if (!c3 || !c3.visible || !c3.selectCheck.checked)
+                if (!c3 || !c3.visible || !c3.selected)
                     continue;
                 var pid = pumpIdFromRunCard(c3);
                 if (ids.indexOf(pid) !== -1) {
@@ -1066,7 +1113,7 @@ ApplicationWindow {
                             run.r5, run.r6, run.r7, run.r8, run.r9];
             for (var j = 0; j < runCards.length; ++j) {
                 var c4 = runCards[j];
-                if (!c4 || !c4.visible || !c4.selectCheck.checked)
+                if (!c4 || !c4.visible || !c4.selected)
                     continue;
                 var pid = pumpIdFromRunCard(c4);
                 if (ids.indexOf(pid) !== -1) {
