@@ -56,13 +56,7 @@ ApplicationWindow {
     function isPumpSelected(pumpCard) {
         if (!pumpCard)
             return false;
-        if (pumpCard.enableCheck)
-            return pumpCard.enableCheck.checked;
-        if (pumpCard.selectCheckBox)
-            return pumpCard.selectCheckBox.checked;
-        if (pumpCard.checkBox)
-            return pumpCard.checkBox.checked;
-        return true;
+        return pumpCard.selected === true;
     }
 
     function applyGroupFlowToSelected() {
@@ -147,12 +141,9 @@ ApplicationWindow {
                      setup.pump4, setup.pump5, setup.pump6,
                      setup.pump7, setup.pump8, setup.pump9];
         var flows = [];
-        var enabled = [];
-        for (var i = 0; i < cards.length; ++i) {
+        for (var i = 0; i < cards.length; ++i)
             flows.push(cards[i].flowField.text);
-            enabled.push(cards[i].enableCheck ? cards[i].enableCheck.checked : true);
-        }
-        return { flows: flows, enabled: enabled };
+        return { flows: flows };
     }
 
     function applyConfig(cfg) {
@@ -161,11 +152,8 @@ ApplicationWindow {
         var cards = [setup.pump1, setup.pump2, setup.pump3,
                      setup.pump4, setup.pump5, setup.pump6,
                      setup.pump7, setup.pump8, setup.pump9];
-        for (var i = 0; i < 9; ++i) {
+        for (var i = 0; i < 9; ++i)
             cards[i].flowField.text = cfg.flows[i];
-            if (cfg.enabled && cfg.enabled.length === 9 && cards[i].enableCheck)
-                cards[i].enableCheck.checked = cfg.enabled[i];
-        }
     }
 
     ListModel { id: presetNamesModel }
@@ -451,174 +439,300 @@ ApplicationWindow {
 
     /* ===================== Automation helpers ===================== */
 
-    // copy Setup -> Automation
-    function populateAutomationFromSetup() {
+    // Build Run page directly from Setup card advanced settings
+    function populateRunFromSetup() {
         var setupCards = [setup.pump1, setup.pump2, setup.pump3,
                           setup.pump4, setup.pump5, setup.pump6,
                           setup.pump7, setup.pump8, setup.pump9];
-
-        var autoCards = [automation.a1, automation.a2, automation.a3,
-                         automation.a4, automation.a5, automation.a6,
-                         automation.a7, automation.a8, automation.a9];
-
-        // Clear automation cards
-        for (var j = 0; j < autoCards.length; ++j) {
-            var ac0 = autoCards[j];
-            ac0.used = false;
-        }
-
-        automationPumpIds = [];
-        var firstUsedIndex = -1;
-
-        for (var i = 0; i < setupCards.length; ++i) {
-            var sc = setupCards[i];
-            if (!sc || !sc.flowField)
-                continue;
-
-            var f = parseFloat(sc.flowField.text);
-            if (!isNaN(f) && f > 0) {
-                var acard = autoCards[i];     // same index as pump
-                acard.used = true;
-                acard.titleLabel.text = sc.titleLabel.text;
-                acard.baseFlowLabel.text = sc.flowField.text + " µL/min";
-
-                // Defaults
-                acard.modeCombo.currentIndex = 0;          // Constant
-                acard.shapeCombo.currentIndex = 0;         // Square
-                acard.periodField.text = "2.0";
-                acard.dutyField.text = "50";
-                acard.totalMinutesField.text = "5.0";
-                acard.stepEnabledCheck.checked = false;
-                acard.stepMinutesField.text = "0.0";
-                acard.stepFlowField.text = sc.flowField.text;
-
-                automationPumpIds.push(i + 1);
-
-                if (firstUsedIndex === -1)
-                    firstUsedIndex = i;
-            }
-        }
-
-        if (firstUsedIndex !== -1)
-            automation.selectedIndex = firstUsedIndex;
-
-        console.log("Automation pumps:", automationPumpIds);
-    }
-
-    // Fill Run page from Automation configuration
-    function populateRunFromAutomation() {
-        var runCards = [run.r1, run.r2, run.r3, run.r4, run.r5, run.r6, run.r7, run.r8, run.r9];
-        var autoCards = [automation.a1, automation.a2, automation.a3,
-                         automation.a4, automation.a5, automation.a6,
-                         automation.a7, automation.a8, automation.a9];
+        var runCards   = [run.r1, run.r2, run.r3, run.r4,
+                          run.r5, run.r6, run.r7, run.r8, run.r9];
 
         // Clear run cards
         for (var k = 0; k < runCards.length; ++k) {
             var rc0 = runCards[k];
-            if (!rc0)
-                continue;
+            if (!rc0) continue;
             rc0.visible = false;
             rc0.selectCheck.checked = false;
             rc0.setFlowValue.text = "0.00";
             rc0.ppsLabel.text = "0";
-            if (rc0.infoLabel)
-                rc0.infoLabel.text = "";
+            if (rc0.infoLabel) rc0.infoLabel.text = "";
             rc0.opacity = 1.0;
             rc0.objectName = "";
+            rc0.pumpEndSec = 0;
+            rc0.pumpStepSec = -1;
+            rc0.pumpStopped = false;
         }
 
-        var slot = 0;
-        var isManual = automation.skipAutomationCheck && automation.skipAutomationCheck.checked;
+        automationPumpIds = [];
+        autoIds = []; autoModes = []; autoShapes = [];
+        autoMins = []; autoPeriods = []; autoDuties = [];
+        autoMinFlows = []; autoMaxFlows = [];
 
-        for (var i = 0; i < autoCards.length && slot < runCards.length; ++i) {
-            var ac = autoCards[i];
-            if (!ac || !ac.used)
-                continue;
+        var slot = 0;
+        var hasPulsatile = false;
+
+        for (var i = 0; i < setupCards.length && slot < runCards.length; ++i) {
+            var sc = setupCards[i];
+            if (!sc || !sc.flowField) continue;
+
+            var f = parseFloat(sc.flowField.text);
+            if (isNaN(f) || f <= 0) continue;
 
             var rc = runCards[slot++];
             rc.visible = true;
-            rc.titleLabel.text = ac.titleLabel.text;
-
-            // Parse base flow from "X.XX µL/min"
-            var baseFlowText = ac.baseFlowLabel.text.split(" ")[0];
-            var f = parseFloat(baseFlowText);
-            if (isNaN(f))
-                f = 0.0;
+            rc.titleLabel.text = sc.titleLabel.text;
             rc.setFlowValue.text = f.toFixed(2);
+            rc.opacity = 1.0;
 
-            // Pump ID:  matches automationPumpIds
             var pumpId = i + 1;
             rc.objectName = "pumpId:" + pumpId;
 
-            // Compute pps using calibration
             var factor = calibrationForPumpId(pumpId);
-            var pps = factor > 0 ? (f / factor) : 0.0;
-            rc.ppsLabel.text = pps.toFixed(0);
+            rc.ppsLabel.text = (factor > 0 ? (f / factor) : 0.0).toFixed(0);
 
-            // Info string
-            var mode = ac.modeCombo.currentText;
+            var mode    = sc.advMode;
             var summary = "";
 
-            if (isManual) {
-                if (mode === "Constant") {
-                    summary = "Manual mode \u2013 Constant \u2022 No time limit";
-                } else {
-                    var shapeM = ac.shapeCombo.currentText;
-                    summary = "Manual mode \u2013 " + shapeM + " \u2022 No time limit";
+            if (mode === "Constant") {
+                summary = "Constant \u2022 " + sc.advTotalMinutes.toFixed(1) + " min";
+                if (sc.advStepEnabled && sc.advStepMinutes > 0) {
+                    summary += " \u2022 Change to " + sc.advStepFlow.toFixed(2)
+                               + " \u00b5L/min at " + sc.advStepMinutes.toFixed(1) + " min";
                 }
+                rc.pumpEndSec  = Math.round(sc.advTotalMinutes * 60);
+                rc.pumpStepSec = sc.advStepEnabled ? Math.round(sc.advStepMinutes * 60) : -1;
+
+            } else if (mode === "Pulsatile") {
+                summary = sc.advShape + " pulsatile \u2022 "
+                          + sc.advTotalMinutes.toFixed(1) + " min \u2022 "
+                          + sc.advPeriod.toFixed(1) + " s period";
+                if (sc.advShape === "Square")
+                    summary += " \u2022 " + sc.advDuty.toFixed(1) + "% duty";
+                rc.pumpEndSec  = Math.round(sc.advTotalMinutes * 60);
+                rc.pumpStepSec = -1;
+                hasPulsatile   = true;
 
             } else {
-                var minutes = parseFloat(ac.totalMinutesField.text);
-                if (isNaN(minutes) || minutes <= 0)
-                    minutes = 0.0;
+                summary = "Manual mode \u2022 No time limit";
+                rc.pumpEndSec  = 0;
+                rc.pumpStepSec = -1;
+            }
 
-                if (mode === "Constant") {
-                    summary = "Constant \u2022 " + minutes.toFixed(1) + " min";
+            rc.infoLabel.text = summary;
 
-                    if (ac.stepEnabledCheck.checked) {
-                        var stepT = parseFloat(ac.stepMinutesField.text);
-                        var stepF = parseFloat(ac.stepFlowField.text);
-                        if (!isNaN(stepT) && !isNaN(stepF) && stepT > 0) {
-                            summary += " \u2022 Change to " +
-                                       stepF.toFixed(2) + " µL/min at " +
-                                       stepT.toFixed(1) + " min";
+            automationPumpIds.push(pumpId);
+            autoIds.push(pumpId);
+            autoModes.push(mode === "" ? "Constant" : mode);
+            autoShapes.push(sc.advShape  || "Square");
+            autoMins.push(sc.advTotalMinutes > 0 ? sc.advTotalMinutes : 5.0);
+            autoPeriods.push(sc.advPeriod > 0 ? sc.advPeriod : 2.0);
+            autoDuties.push((sc.advDuty  > 0 ? sc.advDuty : 50.0) / 100.0);
+            autoMinFlows.push(sc.advMinFlow);
+            autoMaxFlows.push(sc.advMaxFlow > 0 ? sc.advMaxFlow : f);
+        }
+
+        var maxMin = 0.0;
+        for (var m = 0; m < autoMins.length; ++m)
+            if (autoMins[m] > maxMin) maxMin = autoMins[m];
+        automationTotalMinutes = maxMin;
+        automationPending = hasPulsatile && autoIds.length > 0;
+
+        console.log("Run pumps:", automationPumpIds);
+    }
+
+    /* ===================== Advanced Settings Dialog ===================== */
+
+    Dialog {
+        id: advancedDialog
+        modal: true
+        title: "Advanced Settings"
+        width: 440
+        standardButtons: Dialog.NoButton
+
+        contentItem: ColumnLayout {
+            anchors.margins: 12
+            spacing: 8
+
+            RowLayout {
+                spacing: 8
+                Label { text: "Mode:"; font.pixelSize: 12 }
+                ComboBox {
+                    id: advModeCombo
+                    model: ["Constant", "Pulsatile"]
+                    font.pixelSize: 12
+                    Layout.preferredWidth: 120
+                    onCurrentTextChanged: {
+                        if (currentText === "Pulsatile") {
+                            var bf = parseFloat(advBaseFlowField.text);
+                            if (!isNaN(bf) && bf > 0)
+                                advMaxFlowField.text = bf.toFixed(2);
                         }
-                    }
-
-                } else {
-                    var shape2 = ac.shapeCombo.currentText;
-                    var period2 = parseFloat(ac.periodField.text);
-                    if (isNaN(period2) || period2 <= 0)
-                        period2 = 2.0;
-
-                    summary = shape2 + " pulsatile \u2022 " +
-                              minutes.toFixed(1) + " min \u2022 " +
-                              period2.toFixed(1) + " s period";
-
-                    if (shape2 === "Square") {
-                        var duty = parseFloat(ac.dutyField.text);
-                        if (!isNaN(duty))
-                            summary += " \u2022 " + duty.toFixed(1) + "% duty";
                     }
                 }
             }
 
-            rc.infoLabel.text = summary;
-            rc.opacity = 1.0;
-
-            // Per-pump timing so the run-timer can drive countdown labels
-            if (!isManual) {
-                var acMins = parseFloat(ac.totalMinutesField.text);
-                rc.pumpEndSec = (!isNaN(acMins) && acMins > 0) ? Math.round(acMins * 60) : 0;
-                if (mode === "Constant" && ac.stepEnabledCheck.checked) {
-                    var acStepT = parseFloat(ac.stepMinutesField.text);
-                    rc.pumpStepSec = (!isNaN(acStepT) && acStepT > 0) ? Math.round(acStepT * 60) : -1;
-                } else {
-                    rc.pumpStepSec = -1;
+            RowLayout {
+                spacing: 8
+                visible: advModeCombo.currentText === "Pulsatile"
+                Label { text: "Shape:"; font.pixelSize: 12 }
+                ComboBox {
+                    id: advShapeCombo
+                    model: ["Square", "Sinusoidal"]
+                    font.pixelSize: 12
+                    Layout.preferredWidth: 120
                 }
-            } else {
-                rc.pumpEndSec = 0;
-                rc.pumpStepSec = -1;
+            }
+
+            // Base flow (Constant) or Max flow (Pulsatile)
+            RowLayout {
+                spacing: 8
+                Label {
+                    text: advModeCombo.currentText === "Pulsatile" ? "Max flow (µL/min):" : "Base flow (µL/min):"
+                    font.pixelSize: 12
+                }
+                TextField {
+                    id: advBaseFlowField
+                    visible: advModeCombo.currentText === "Constant"
+                    text: "0.00"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+                TextField {
+                    id: advMaxFlowField
+                    visible: advModeCombo.currentText === "Pulsatile"
+                    text: "0.00"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                visible: advModeCombo.currentText === "Pulsatile"
+                Label { text: "Period (s):"; font.pixelSize: 12 }
+                TextField {
+                    id: advPeriodField
+                    text: "2.0"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                visible: advModeCombo.currentText === "Pulsatile" && advShapeCombo.currentText === "Square"
+                Label { text: "Duty (%):"; font.pixelSize: 12 }
+                TextField {
+                    id: advDutyField
+                    text: "50"
+                    validator: DoubleValidator { bottom: 1; top: 99; decimals: 1 }
+                    Layout.preferredWidth: 70
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                visible: advModeCombo.currentText === "Pulsatile"
+                Label { text: "Min flow (µL/min):"; font.pixelSize: 12 }
+                TextField {
+                    id: advMinFlowField
+                    text: "0.00"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                Label { text: "Total run time (min):"; font.pixelSize: 12 }
+                TextField {
+                    id: advTotalMinutesField
+                    text: "5.0"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+            }
+
+            CheckBox {
+                id: advStepCheck
+                text: "Change flow after time"
+                font.pixelSize: 12
+                visible: advModeCombo.currentText === "Constant"
+            }
+
+            RowLayout {
+                spacing: 8
+                visible: advModeCombo.currentText === "Constant" && advStepCheck.checked
+                Label { text: "After (min):"; font.pixelSize: 12 }
+                TextField {
+                    id: advStepMinField
+                    text: "2.0"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 70
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+                Label { text: "New flow (µL/min):"; font.pixelSize: 12 }
+                TextField {
+                    id: advStepFlowField
+                    text: "0.00"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
+                    font.pixelSize: 12
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Close"
+                onClicked: advancedDialog.close()
+            }
+            Button {
+                text: "Apply to Selected"
+                onClicked: {
+                    var pumps = [setup.pump1, setup.pump2, setup.pump3,
+                                 setup.pump4, setup.pump5, setup.pump6,
+                                 setup.pump7, setup.pump8, setup.pump9];
+                    var mode = advModeCombo.currentText;
+                    for (var i = 0; i < pumps.length; ++i) {
+                        var card = pumps[i];
+                        if (!card || !card.selected) continue;
+                        card.advMode         = mode;
+                        card.advTotalMinutes = parseFloat(advTotalMinutesField.text) || 5.0;
+                        if (mode === "Constant") {
+                            var bf = parseFloat(advBaseFlowField.text);
+                            if (!isNaN(bf) && bf >= 0) card.flowField.text = bf.toFixed(2);
+                            card.advStepEnabled = advStepCheck.checked;
+                            card.advStepMinutes = parseFloat(advStepMinField.text)  || 2.0;
+                            card.advStepFlow    = parseFloat(advStepFlowField.text) || 0.0;
+                        } else {
+                            card.advShape   = advShapeCombo.currentText;
+                            var mf = parseFloat(advMaxFlowField.text);
+                            if (!isNaN(mf) && mf >= 0) card.flowField.text = mf.toFixed(2);
+                            card.advMaxFlow = isNaN(mf) ? 0.0 : mf;
+                            card.advPeriod  = parseFloat(advPeriodField.text)  || 2.0;
+                            card.advDuty    = parseFloat(advDutyField.text)    || 50.0;
+                            card.advMinFlow = parseFloat(advMinFlowField.text) || 0.0;
+                        }
+                    }
+                    advancedDialog.close();
+                }
             }
         }
     }
@@ -628,7 +742,6 @@ ApplicationWindow {
     header: TabBar {
         id: tabs
         TabButton { text: "Set up" }
-        TabButton { text: "Automation" }
         TabButton { text: "Run" }
     }
 
@@ -640,13 +753,6 @@ ApplicationWindow {
         // ---- Setup page ----
         SetupPageForm {
             id: setup
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-        }
-
-        // ---- Automation page ----
-        AutomationPageForm {
-            id: automation
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -809,10 +915,25 @@ ApplicationWindow {
         // Setup buttons
         setup.applyGroupButton.clicked.connect(app.applyGroupFlowToSelected);
         setup.readyToRunButton.clicked.connect(function () {
-            app.populateAutomationFromSetup();
+            app.populateRunFromSetup();
+            automationFinished = false;
             elapsedSec = 0;
             run.runTimeLabel.text = "00:00:00";
-            tabs.currentIndex = 1;   // go to Automation tab
+            tabs.currentIndex = 1;   // go to Run tab
+        });
+        setup.advancedButton.clicked.connect(function () {
+            // Pre-populate base flow from first selected pump
+            var pumps = [setup.pump1, setup.pump2, setup.pump3,
+                         setup.pump4, setup.pump5, setup.pump6,
+                         setup.pump7, setup.pump8, setup.pump9];
+            for (var i = 0; i < pumps.length; ++i) {
+                if (pumps[i] && pumps[i].selected) {
+                    advBaseFlowField.text = pumps[i].flowField.text;
+                    advMaxFlowField.text  = pumps[i].flowField.text;
+                    break;
+                }
+            }
+            advancedDialog.open();
         });
         setup.savePresetButton.clicked.connect(app.handleSavePreset);
         setup.loadPresetButton.clicked.connect(app.handleLoadPreset);
@@ -859,37 +980,24 @@ ApplicationWindow {
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
 
-            var acCards = [automation.a1, automation.a2, automation.a3,
-                           automation.a4, automation.a5, automation.a6,
-                           automation.a7, automation.a8, automation.a9];
-
-            if (automationPending) {
+            if (automationPending && typeof backend !== "undefined" && backend.startAutomation) {
                 automationFinished = false;
                 backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
-                                autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);    
+                                        autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
             }
 
             if (typeof backend !== "undefined" && backend.set_flow) {
                 for (var i = 0; i < runCards.length; ++i) {
                     var c = runCards[i];
-                    if (!c || !c.visible)
-                        continue;
-
-                    var ac = acCards[i];
-                    if (!ac || !ac.used) continue;
-
+                    if (!c || !c.visible) continue;
                     var pid = pumpIdFromRunCard(c);
-                    if (pid <= 0)
-                        continue;
-
+                    if (pid <= 0) continue;
                     var f = parseFloat(c.setFlowValue.text);
-                    if (isNaN(f) || f <= 0)
-                        continue;
-
-                    backend.set_flow(pid, f);   // µL/min directly
+                    if (isNaN(f) || f <= 0) continue;
+                    backend.set_flow(pid, f);
                 }
             }
-            
+
             if (!runTimer.running)
                 runTimer.start();
         });
@@ -977,69 +1085,5 @@ ApplicationWindow {
                 backend.resumePumps(ids);
         });
 
-        // Automation start: populate Run + call backend
-        automation.startAutomationButton.clicked.connect(function () {
-            if (automationPumpIds.length === 0)
-                return;
-
-            console.log("Start Automation clicked (Automation page)");
-
-            var manual = automation.skipAutomationCheck.checked;
-
-            app.populateRunFromAutomation();
-
-            elapsedSec = 0;
-            run.runTimeLabel.text = "00:00:00";
-            tabs.currentIndex = 2;
-
-            var acCards = [automation.a1, automation.a2, automation.a3,
-                           automation.a4, automation.a5, automation.a6,
-                           automation.a7, automation.a8, automation.a9];
-            
-
-            autoIds = []; autoModes = [];  autoShapes = [];
-            autoMins = []; autoPeriods = []; autoDuties = [];
-            autoMinFlows = []; autoMaxFlows = [];
-            
-            var ac = null;
-            for (var j = 0; j < acCards.length; ++j) {
-                var ac = acCards[j];
-                if (!ac || !ac.used) continue;
-                ac = acCards[j];
-                var pumpId = j+1;
-                var cardMode = ac.modeCombo.currentText;
-                var cardMinutes = parseFloat(ac.totalMinutesField.text);
-                if (isNaN(cardMinutes) || cardMinutes <= 0) cardMinutes = 5.0;                    var cardShape = "", cardPeriod = 0.0, cardDuty = 0.0;
-                if (cardMode === "Pulsatile") {
-                    cardShape = ac.shapeCombo.currentText;
-                    cardPeriod = parseFloat(ac.periodField.text) || 2.0;
-                    if (cardShape === "Square") {
-                        cardDuty = (parseFloat(ac.dutyField.text) || 50.0) / 100.0;                      
-                    }
-                }
-                
-                var cardMin = parseFloat(ac.minFlowField.text);
-                var cardMax = parseFloat(ac.maxFlowField.text);
-                if (isNaN(cardMin)) cardMin = 0.0;
-                if (isNaN(cardMax) || cardMax <= 0) cardMax = parseFloat(ac.baseFlowLabel.text) || 0.0;
-
-                autoIds.push(pumpId);
-                autoModes.push(cardMode);
-                autoShapes.push(cardShape);
-                autoMins.push(cardMinutes);
-                autoPeriods.push(cardPeriod);
-                autoDuties.push(cardDuty);
-                autoMinFlows.push(cardMin);
-                autoMaxFlows.push(cardMax);
-            }
-            var maxMin = 0.0;
-            for (var k = 0; k < autoMins.length; ++k)
-                if (autoMins[k] > maxMin) maxMin = autoMins[k];
-            automationTotalMinutes = maxMin;
-
-            automationPending = !manual && autoIds.length > 0;
-            
-
-        });
     }
 }

@@ -7,11 +7,12 @@ Item {
     implicitWidth: 1200
     implicitHeight: 700
 
-    property alias groupFlowField: groupFlowField
-    property alias applyGroupButton: applyGroupButton
-    property alias loadPresetButton: loadPresetButton
-    property alias savePresetButton: savePresetButton
-    property alias readyToRunButton: readyToRunButton
+    property alias groupFlowField:    groupFlowField
+    property alias applyGroupButton:  applyGroupButton
+    property alias advancedButton:    advancedButton
+    property alias loadPresetButton:  loadPresetButton
+    property alias savePresetButton:  savePresetButton
+    property alias readyToRunButton:  readyToRunButton
     property alias calibrationButton: calibrationButton
 
     property alias pump1: pc1
@@ -50,14 +51,15 @@ Item {
 
                 Label { text: "µL/min"; font.pixelSize: 12; color: "#555" }
 
-                ToolButton { id: applyGroupButton; text: "Apply to Selected"; font.pixelSize: 12 }
-                ToolButton { id: readyToRunButton; text: "Ready to Run"; font.pixelSize: 12 }
+                ToolButton { id: advancedButton;    text: "Advanced";         font.pixelSize: 12 }
+                ToolButton { id: applyGroupButton;  text: "Apply to Selected"; font.pixelSize: 12 }
+                ToolButton { id: readyToRunButton;  text: "Ready to Run";      font.pixelSize: 12 }
 
                 Item { Layout.fillWidth: true }
 
                 ToolButton { id: calibrationButton; text: "Calibration"; font.pixelSize: 12 }
-                ToolButton { id: loadPresetButton; text: "Load Preset"; font.pixelSize: 12 }
-                ToolButton { id: savePresetButton; text: "Save Preset"; font.pixelSize: 12 }
+                ToolButton { id: loadPresetButton;  text: "Load Preset";  font.pixelSize: 12 }
+                ToolButton { id: savePresetButton;  text: "Save Preset";  font.pixelSize: 12 }
             }
         }
 
@@ -69,25 +71,14 @@ Item {
             Layout.fillHeight: true
 
             PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 1" }
-            PumpCardForm { id: pc5; pumpId: 5; titleLabel.text: "Pump 2" }
+            PumpCardForm { id: pc5; pumpId: 8; titleLabel.text: "Pump 2" }
             PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 3" }
             PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 4" }
             PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 5" }
             PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 6" }
             PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 7" }
-            PumpCardForm { id: pc8; pumpId: 8; titleLabel.text: "Pump 8" }
+            PumpCardForm { id: pc8; pumpId: 5; titleLabel.text: "Pump 8" }
             PumpCardForm { id: pc4; pumpId: 4; titleLabel.text: "Pump 9" }
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
