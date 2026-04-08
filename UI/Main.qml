@@ -120,22 +120,13 @@ ApplicationWindow {
         return ids;
     }
 
-    /* ===================== Preset storage (Setup flows) ===================== */
+    /* ===================== Preset storage ===================== */
 
-    Settings {
-        id: presetSettings
-        fileName: "presets.ini"
-        category: "Presets"
-        property string presetStore: "{}"
-    }
-
-    property var presetMap: (function () {
-        try { return JSON.parse(presetSettings.presetStore); }
-        catch(e) { return {}; }
-    })()
+    property var presetMap: ({})
 
     function persistPresets() {
-        presetSettings.presetStore = JSON.stringify(presetMap);
+        if (typeof backend !== "undefined" && backend.save_presets)
+            backend.save_presets(JSON.stringify(presetMap));
     }
 
     function readCurrentConfig() {
@@ -496,6 +487,8 @@ ApplicationWindow {
             rc0.pumpEndSec = 0;
             rc0.pumpStepSec = -1;
             rc0.pumpStopped = false;
+            rc0.pumpPausedAt = -1;
+            rc0.pumpPausedAccum = 0;
         }
 
         automationPumpIds = [];
@@ -757,14 +750,14 @@ ApplicationWindow {
                         card.advTotalMinutes = parseFloat(advTotalMinutesField.text) || 5.0;
                         if (mode === "Constant") {
                             var bf = parseFloat(advBaseFlowField.text);
-                            if (!isNaN(bf) && bf >= 0) card.flowField.text = bf.toFixed(2);
+                            if (!isNaN(bf) && bf > 0) card.flowField.text = bf.toFixed(2);
                             card.advStepEnabled = advStepCheck.checked;
                             card.advStepMinutes = parseFloat(advStepMinField.text)  || 2.0;
                             card.advStepFlow    = parseFloat(advStepFlowField.text) || 0.0;
                         } else {
                             card.advShape   = advShapeCombo.currentText;
                             var mf = parseFloat(advMaxFlowField.text);
-                            if (!isNaN(mf) && mf >= 0) card.flowField.text = mf.toFixed(2);
+                            if (!isNaN(mf) && mf > 0) card.flowField.text = mf.toFixed(2);
                             card.advMaxFlow = isNaN(mf) ? 0.0 : mf;
                             card.advPeriod  = parseFloat(advPeriodField.text)  || 2.0;
                             card.advDuty    = parseFloat(advDutyField.text)    || 50.0;
@@ -830,6 +823,8 @@ ApplicationWindow {
                 if (!c || !c.visible || !c.infoLabel)
                     continue;
 
+                if (c.paused) continue;   // don't fire step changes while paused
+
                 var text = c.infoLabel.text;
 
                 var idxMarker = text.indexOf(marker);
@@ -883,14 +878,19 @@ ApplicationWindow {
                 var pc = runCards[pi];
                 if (!pc || !pc.visible) continue;
 
+                // Effective elapsed: freeze at the moment this pump was paused
+                var pcEff = pc.paused
+                    ? Math.max(0, pc.pumpPausedAt - pc.pumpPausedAccum)
+                    : (elapsedSec - pc.pumpPausedAccum);
+
                 // Main countdown
                 if (pc.pumpEndSec > 0) {
-                    var remSec = Math.max(0, pc.pumpEndSec - elapsedSec);
+                    var remSec = Math.max(0, pc.pumpEndSec - pcEff);
                     if (remSec > 0) {
                         var remM = Math.floor(remSec / 60);
                         var remS = remSec % 60;
                         pc.timerLabel.text = remM + ":" + pad(remS) + " remaining";
-                    } else if (!pc.pumpStopped) {
+                    } else if (!pc.pumpStopped && !pc.paused) {
                         pc.pumpStopped = true;
                         pc.timerLabel.text = "Done";
                         var stopPid = pumpIdFromRunCard(pc);
@@ -899,10 +899,10 @@ ApplicationWindow {
                     }
                 }
 
-                // Step-change countdown
-                if (pc.pumpStepSec > 0) {
-                    if (elapsedSec < pc.pumpStepSec) {
-                        var stRem = pc.pumpStepSec - elapsedSec;
+                // Step-change countdown (skip if paused)
+                if (pc.pumpStepSec > 0 && !pc.paused) {
+                    if (pcEff < pc.pumpStepSec) {
+                        var stRem = pc.pumpStepSec - pcEff;
                         var stM = Math.floor(stRem / 60);
                         var stS = stRem % 60;
                         pc.stepLabel.text = "Step in " + stM + ":" + pad(stS);
@@ -949,12 +949,14 @@ ApplicationWindow {
     Component.onCompleted: {
         console.log("Main loaded");
 
-        // Reload presets now that Qt.labs.settings has finished loading from disk
-        try {
-            var saved = JSON.parse(presetSettings.presetStore);
-            if (saved && typeof saved === "object")
-                presetMap = saved;
-        } catch(e) {}
+        // Load presets from file via backend
+        if (typeof backend !== "undefined" && backend.load_presets) {
+            try {
+                var saved = JSON.parse(backend.load_presets());
+                if (saved && typeof saved === "object")
+                    presetMap = saved;
+            } catch(e) {}
+        }
 
         if (typeof backend !== "undefined" && backend.refreshPorts)
             backend.refreshPorts();
@@ -1053,6 +1055,14 @@ ApplicationWindow {
 
         run.pauseButton.clicked.connect(function () {
             runTimer.stop();
+            var allCards = [run.r1, run.r2, run.r3, run.r4,
+                            run.r5, run.r6, run.r7, run.r8, run.r9];
+            for (var i = 0; i < allCards.length; ++i) {
+                var ac = allCards[i];
+                if (!ac || !ac.visible) continue;
+                ac.paused = true;
+                ac.pumpPausedAt = elapsedSec;
+            }
             if (typeof backend !== "undefined" && backend.pauseAll)
                 backend.pauseAll();
         });
@@ -1070,6 +1080,8 @@ ApplicationWindow {
                 var c2 = runCards[j];
                 if (!c2) continue;
                 c2.paused = false;
+                c2.pumpPausedAt = -1;
+                c2.pumpPausedAccum = 0;
                 if (c2.timerLabel) c2.timerLabel.text = "";
                 if (c2.stepLabel)  c2.stepLabel.text  = "";
             }
@@ -1095,6 +1107,7 @@ ApplicationWindow {
                 var pid = pumpIdFromRunCard(c3);
                 if (ids.indexOf(pid) !== -1) {
                     c3.paused = true;
+                    c3.pumpPausedAt = elapsedSec;
                     if (pausedPumpIds.indexOf(pid) === -1)
                         pausedPumpIds.push(pid);
                 }
@@ -1117,6 +1130,9 @@ ApplicationWindow {
                     continue;
                 var pid = pumpIdFromRunCard(c4);
                 if (ids.indexOf(pid) !== -1) {
+                    if (c4.pumpPausedAt >= 0)
+                        c4.pumpPausedAccum += elapsedSec - c4.pumpPausedAt;
+                    c4.pumpPausedAt = -1;
                     c4.paused = false;
                     var idx = pausedPumpIds.indexOf(pid);
                     if (idx !== -1)

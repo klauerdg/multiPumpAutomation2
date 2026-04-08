@@ -544,3 +544,28 @@ class QBackend(QObject):
             f"[QBackend] set_calibration(global={p} -> local={local}, "
             f"ul_per_rev={float(ul_per_rev)})  (no-op)"
         )
+
+    # ---------- Preset file I/O ----------
+
+    @Slot(str)
+    def save_presets(self, json_str: str):
+        """Write preset JSON to presets.json next to main.py."""
+        import os, json
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets.json")
+        try:
+            with open(path, "w") as f:
+                f.write(json_str)
+            print(f"[QBackend] Presets saved to {path}")
+        except Exception as e:
+            print(f"[QBackend] Failed to save presets: {e}")
+
+    @Slot(result=str)
+    def load_presets(self) -> str:
+        """Read preset JSON from presets.json next to main.py."""
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets.json")
+        try:
+            with open(path) as f:
+                return f.read()
+        except Exception:
+            return "{}"

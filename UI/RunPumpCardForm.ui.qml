@@ -21,6 +21,8 @@ Item {
     property int pumpEndSec: 0
     property int pumpStepSec: -1
     property bool pumpStopped: false
+    property int pumpPausedAt: -1       // elapsedSec when this pump was last paused (-1 = not paused)
+    property int pumpPausedAccum: 0     // total seconds this pump has been paused
 
     Rectangle {
         anchors.fill: parent
