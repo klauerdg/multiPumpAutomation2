@@ -58,7 +58,7 @@ Item {
         // ── Toolbar ───────────────────────────────────────────────────────────
         Rectangle {
             Layout.fillWidth: true
-            height: 48
+            height: 58
             radius: 6
             color: themeColors.toolbarBg || "#1565c0"
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -72,7 +72,7 @@ Item {
 
                 Label {
                     text:  "Flow"
-                    font.pixelSize: 13
+                    font.pixelSize: 16
                     color: themeColors.toolbarText || "#ffffff"
                 }
 
@@ -80,14 +80,14 @@ Item {
                     id: groupFlowField
                     text:  "0.00"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
-                    Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    Layout.preferredWidth: 96
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
 
                 Label {
                     text:  "µL/min"
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     color: themeColors.toolbarText || "#ffffff"
                     opacity: 0.85
                 }
@@ -95,24 +95,24 @@ Item {
                 FlashButton {
                     id: advancedButton
                     text: "Advanced"
-                    font.pixelSize: 12
-                    Layout.preferredWidth: 90
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 108
                     themeColors: root.themeColors
                 }
 
                 FlashButton {
                     id: applyGroupButton
                     text: "Apply to Selected"
-                    font.pixelSize: 12
-                    Layout.preferredWidth: 120
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 144
                     themeColors: root.themeColors
                 }
 
                 FlashButton {
                     id: readyToRunButton
                     text: "Ready to Run"
-                    font.pixelSize: 12
-                    Layout.preferredWidth: 110
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 132
                     themeColors: root.themeColors
                 }
 
@@ -121,24 +121,24 @@ Item {
                 FlashButton {
                     id: calibrationButton
                     text: "Calibration"
-                    font.pixelSize: 12
-                    Layout.preferredWidth: 90
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 108
                     themeColors: root.themeColors
                 }
 
                 FlashButton {
                     id: loadPresetButton
                     text: "Load Preset"
-                    font.pixelSize: 12
-                    Layout.preferredWidth: 90
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 108
                     themeColors: root.themeColors
                 }
 
                 FlashButton {
                     id: savePresetButton
                     text: "Save Preset"
-                    font.pixelSize: 12
-                    Layout.preferredWidth: 90
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 108
                     themeColors: root.themeColors
                 }
             }

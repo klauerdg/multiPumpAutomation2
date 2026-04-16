@@ -76,7 +76,7 @@ Item {
         Label {
             id: runTimeLabel
             text: "00:00:00"
-            font.pointSize: 18 * scaleFactor
+            font.pointSize: 22 * scaleFactor
             font.bold: true
             color: root._timerClr
             horizontalAlignment: Text.AlignHCenter
@@ -88,7 +88,7 @@ Item {
         Label {
             id: statusLabel
             text: ""
-            font.pixelSize: 11 * scaleFactor
+            font.pixelSize: 13 * scaleFactor
             color: Qt.alpha(_pageText, 0.6)
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
@@ -103,39 +103,39 @@ Item {
             FlashButton {
                 id: startButton
                 text: "Start"
-                font.pixelSize: 12 * scaleFactor
-                Layout.preferredWidth: 80 * scaleFactor
+                font.pixelSize: 14 * scaleFactor
+                Layout.preferredWidth: 96 * scaleFactor
                 themeColors: root.themeColors
             }
             FlashButton {
                 id: pauseButton
                 text: "Pause All"
-                font.pixelSize: 12 * scaleFactor
-                Layout.preferredWidth: 90 * scaleFactor
+                font.pixelSize: 14 * scaleFactor
+                Layout.preferredWidth: 108 * scaleFactor
                 themeColors: root.themeColors
             }
             FlashButton {
                 id: stopButton
                 text: "Stop All"
-                font.pixelSize: 12 * scaleFactor
-                Layout.preferredWidth: 90 * scaleFactor
+                font.pixelSize: 14 * scaleFactor
+                Layout.preferredWidth: 108 * scaleFactor
                 themeColors: root.themeColors
             }
 
-            Item { Layout.preferredWidth: 16 * scaleFactor }
+            Item { Layout.preferredWidth: 19 * scaleFactor }
 
             FlashButton {
                 id: pauseSelectedButton
                 text: "Pause Selected"
-                font.pixelSize: 11 * scaleFactor
-                Layout.preferredWidth: 110 * scaleFactor
+                font.pixelSize: 13 * scaleFactor
+                Layout.preferredWidth: 132 * scaleFactor
                 themeColors: root.themeColors
             }
             FlashButton {
                 id: resumeSelectedButton
                 text: "Resume Selected"
-                font.pixelSize: 11 * scaleFactor
-                Layout.preferredWidth: 120 * scaleFactor
+                font.pixelSize: 13 * scaleFactor
+                Layout.preferredWidth: 144 * scaleFactor
                 themeColors: root.themeColors
             }
         }

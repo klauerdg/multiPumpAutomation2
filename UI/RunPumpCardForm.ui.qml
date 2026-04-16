@@ -31,7 +31,8 @@ Item {
         cardBorderSelected: "#455a64",
         timerColor:         "#1565c0",
         pausedColor:        "#bf360c",
-        stepColor:          "#2e7d32"
+        stepColor:          "#2e7d32",
+        inputBg:            "#ffffff"
     })
 
     property color _bg:        "#ffffff"
@@ -86,28 +87,28 @@ Item {
             id:             titleLabel
             text:           "Pump"
             font.bold:      true
-            font.pixelSize: 12
+            font.pixelSize: 14
             color:          root._cardText
         }
 
         RowLayout {
             spacing: 4
-            Label { text: "Set:";    font.pixelSize: 11; color: root._cardText }
+            Label { text: "Set:";    font.pixelSize: 13; color: root._cardText }
             Label {
                 id:             setFlowValue
                 text:           "0.00"
                 font.bold:      true
-                font.pixelSize: 11
+                font.pixelSize: 13
                 color:          root._cardText
             }
-            Label { text: "µL/min"; font.pixelSize: 11; color: Qt.alpha(root._cardText, 0.6) }
-            Label { text: "•";      font.pixelSize: 11; color: Qt.alpha(root._cardText, 0.4) }
-            Label { text: "pps:";   font.pixelSize: 11; color: root._cardText }
+            Label { text: "µL/min"; font.pixelSize: 13; color: Qt.alpha(root._cardText, 0.6) }
+            Label { text: "•";      font.pixelSize: 13; color: Qt.alpha(root._cardText, 0.4) }
+            Label { text: "pps:";   font.pixelSize: 13; color: root._cardText }
             Label {
                 id:             ppsLabel
                 text:           "0"
                 font.bold:      true
-                font.pixelSize: 11
+                font.pixelSize: 13
                 color:          root._cardText
             }
             Item { Layout.fillWidth: true }
@@ -116,7 +117,7 @@ Item {
         Label {
             id:             infoLabel
             text:           ""
-            font.pixelSize: 11
+            font.pixelSize: 13
             color:          Qt.alpha(root._cardText, 0.65)
             Layout.fillWidth: true
             wrapMode:       Text.WordWrap
@@ -129,14 +130,14 @@ Item {
             Label {
                 id:             timerLabel
                 text:           ""
-                font.pixelSize: 12
+                font.pixelSize: 14
                 font.bold:      true
                 color:          root._timerClr
                 visible:        text !== ""
             }
             Label {
                 text:           "Paused"
-                font.pixelSize: 11
+                font.pixelSize: 13
                 font.bold:      true
                 color:          root._pausedClr
                 visible:        root.paused
@@ -146,7 +147,7 @@ Item {
         Label {
             id:             stepLabel
             text:           ""
-            font.pixelSize: 11
+            font.pixelSize: 13
             color:          root._stepClr
             Layout.fillWidth: true
             visible:        text !== ""

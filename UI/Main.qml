@@ -52,7 +52,8 @@ ApplicationWindow {
         pausedColor:        "#bf360c",
         stepColor:          "#2e7d32",
         primeActive:        "#ffccbc",
-        primeInactive:      "#eceff1"
+        primeInactive:      "#eceff1",
+        inputBg:            "#ffffff"
     })
 
     readonly property var _dark: ({
@@ -68,7 +69,8 @@ ApplicationWindow {
         pausedColor:        "#ffffff",
         stepColor:          "#ffffff",
         primeActive:        "#7f2a20",
-        primeInactive:      "#2a3a4a"
+        primeInactive:      "#2a3a4a",
+        inputBg:            "#0a1520"
     })
 
     // Currently active theme object
@@ -269,6 +271,12 @@ ApplicationWindow {
         closePolicy: Popup.CloseOnEscape
         title: "Save Preset"
         standardButtons: Dialog.Ok | Dialog.Cancel
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"
+            radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -296,6 +304,12 @@ ApplicationWindow {
         title: "Load Preset"
         standardButtons: Dialog.NoButton
         property int selectedIndex: -1
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"
+            radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -332,7 +346,7 @@ ApplicationWindow {
             spacing: 8
             Button {
                 text: "Delete Preset"
-                font.pixelSize: 11
+                font.pixelSize: 16
                 enabled: loadPresetDialog.selectedIndex >= 0
                 onClicked: {
                     if (loadPresetDialog.selectedIndex < 0) return;
@@ -353,12 +367,12 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             Button {
                 text: "Cancel"
-                font.pixelSize: 12
+                font.pixelSize: 14
                 onClicked: loadPresetDialog.close()
             }
             Button {
                 text: "Load"
-                font.pixelSize: 12
+                font.pixelSize: 14
                 enabled: loadPresetDialog.selectedIndex >= 0
                 onClicked: {
                     if (loadPresetDialog.selectedIndex < 0 ||
@@ -386,6 +400,12 @@ ApplicationWindow {
         closePolicy: Popup.CloseOnEscape
         title: "Theme Settings"
         width: 575
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"
+            radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
 
         property var editColors: ({})   // working copy while dialog is open
 
@@ -413,7 +433,8 @@ ApplicationWindow {
             ["pausedColor",        "Paused badge"],
             ["stepColor",          "Step-change text"],
             ["primeActive",        "Prime (active)"],
-            ["primeInactive",      "Prime (idle)"]
+            ["primeInactive",      "Prime (idle)"],
+            ["inputBg",            "Flow rate field"]
         ]
 
         contentItem: ColumnLayout {
@@ -423,14 +444,14 @@ ApplicationWindow {
             // ── Preset row ────────────────────────────────────────────────────
             RowLayout {
                 spacing: 8
-                Label { text: "Preset:"; font.pixelSize: 13 }
+                Label { text: "Preset:"; font.pixelSize: 16 }
                 Button {
-                    text: "Blues Light"
-                    font.pixelSize: 12
+                    text: "Default"
+                    font.pixelSize: 14
                     Layout.preferredWidth: 110
                     onClicked: themeDialog.loadEditor(app._bluesLight)
                     background: Rectangle {
-                        radius: 4; color: "#1976d2"
+                        radius: 4; color: "#546e7a"
                     }
                     contentItem: Text {
                         text: parent.text; font: parent.font; color: "#fff"
@@ -440,7 +461,7 @@ ApplicationWindow {
                 }
                 Button {
                     text: "Dark"
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     Layout.preferredWidth: 80
                     onClicked: themeDialog.loadEditor(app._dark)
                     background: Rectangle {
@@ -466,7 +487,7 @@ ApplicationWindow {
                 }
                 Button {
                     text: "Delete"
-                    font.pixelSize: 11
+                    font.pixelSize: 16
                     Layout.preferredWidth: 65
                     visible: savedThemeCombo.count > 0
                     onClicked: {
@@ -507,34 +528,22 @@ ApplicationWindow {
 
                         Label {
                             text:  colorLabel
-                            font.pixelSize: 11
+                            font.pixelSize: 16
                             Layout.preferredWidth: 130
                         }
 
-                        // Colour swatch — tap to open color wheel picker
+                        // Colour swatch
                         Rectangle {
                             width: 28; height: 28; radius: 4
                             color: themeDialog.editColors[colorKey] || "#888888"
-                            border.color: swatchArea.containsMouse ? "#fff" : "#555"
-                            border.width: swatchArea.containsMouse ? 2 : 1
-                            MouseArea {
-                                id: swatchArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    colorPicker.activeKey    = colorKey;
-                                    colorPicker.initialColor = themeDialog.editColors[colorKey] || "#888888";
-                                    colorPicker.open();
-                                }
-                            }
+                            border.color: "#555"; border.width: 1
                         }
 
                         // Hex text field
                         TextField {
                             id: hexField
                             text: themeDialog.editColors[colorKey] || ""
-                            font.pixelSize: 11
+                            font.pixelSize: 16
                             Layout.preferredWidth: 80
                             inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                             onEditingFinished: {
@@ -556,16 +565,16 @@ ApplicationWindow {
             // ── Save custom theme row ─────────────────────────────────────────
             RowLayout {
                 spacing: 8
-                Label { text: "Save as:"; font.pixelSize: 12 }
+                Label { text: "Save as:"; font.pixelSize: 14 }
                 TextField {
                     id: customThemeNameField
                     placeholderText: "My Theme"
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     Layout.preferredWidth: 160
                 }
                 Button {
                     text: "Save Theme"
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     Layout.preferredWidth: 100
                     onClicked: {
                         var n = customThemeNameField.text.trim();
@@ -585,7 +594,7 @@ ApplicationWindow {
             spacing: 8
             Button {
                 text: "Delete Theme"
-                font.pixelSize: 11
+                font.pixelSize: 16
                 visible: savedThemeCombo.count > 0
                 onClicked: {
                     var name = savedThemeCombo.currentText;
@@ -606,31 +615,18 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             Button {
                 text: "Cancel"
-                font.pixelSize: 12
+                font.pixelSize: 14
                 onClicked: themeDialog.close()
             }
             Button {
                 text: "Apply"
-                font.pixelSize: 12
+                font.pixelSize: 14
                 onClicked: {
                     app.switchTheme(JSON.parse(JSON.stringify(themeDialog.editColors)));
                     app.persistTheme();
                     themeDialog.close();
                 }
             }
-        }
-    }
-
-    // Color wheel picker — opened from theme dialog swatches
-    ColorPickerDialog {
-        id: colorPicker
-        property string activeKey: ""
-        onColorAccepted: function(hex) {
-            var tmp = JSON.parse(JSON.stringify(themeDialog.editColors));
-            tmp[activeKey] = hex;
-            themeDialog.editColors = tmp;
-            editColorRepeater.model = 0;
-            editColorRepeater.model = themeDialog.colorKeys.length;
         }
     }
 
@@ -699,6 +695,12 @@ ApplicationWindow {
         closePolicy: Popup.CloseOnEscape
         title: "Per-pump Calibration (µL/min per pps)"
         standardButtons: Dialog.Ok | Dialog.Cancel
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"
+            radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -715,73 +717,73 @@ ApplicationWindow {
                 rowSpacing: 4
                 columnSpacing: 10
 
-                Label { text: "Pump 1"; font.pixelSize: 11 }
+                Label { text: "Pump 1"; font.pixelSize: 16 }
                 TextField {
-                    id: cal1; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal1; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 2"; font.pixelSize: 11 }
+                Label { text: "Pump 2"; font.pixelSize: 16 }
                 TextField {
-                    id: cal2; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal2; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 3"; font.pixelSize: 11 }
+                Label { text: "Pump 3"; font.pixelSize: 16 }
                 TextField {
-                    id: cal3; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal3; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 4"; font.pixelSize: 11 }
+                Label { text: "Pump 4"; font.pixelSize: 16 }
                 TextField {
-                    id: cal4; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal4; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 5"; font.pixelSize: 11 }
+                Label { text: "Pump 5"; font.pixelSize: 16 }
                 TextField {
-                    id: cal5; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal5; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 6"; font.pixelSize: 11 }
+                Label { text: "Pump 6"; font.pixelSize: 16 }
                 TextField {
-                    id: cal6; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal6; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 7"; font.pixelSize: 11 }
+                Label { text: "Pump 7"; font.pixelSize: 16 }
                 TextField {
-                    id: cal7; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal7; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 8"; font.pixelSize: 11 }
+                Label { text: "Pump 8"; font.pixelSize: 16 }
                 TextField {
-                    id: cal8; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal8; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 Item {}
 
-                Label { text: "Pump 9"; font.pixelSize: 11 }
+                Label { text: "Pump 9"; font.pixelSize: 16 }
                 TextField {
-                    id: cal9; Layout.preferredWidth: 80; font.pixelSize: 11
+                    id: cal9; Layout.preferredWidth: 80; font.pixelSize: 16
                     validator: DoubleValidator { bottom: 0; decimals: 5 }
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
@@ -961,6 +963,12 @@ ApplicationWindow {
         title: "Advanced Settings"
         width: 440
         standardButtons: Dialog.NoButton
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"
+            radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -968,11 +976,11 @@ ApplicationWindow {
 
             RowLayout {
                 spacing: 8
-                Label { text: "Mode:"; font.pixelSize: 12 }
+                Label { text: "Mode:"; font.pixelSize: 14 }
                 ComboBox {
                     id: advModeCombo
                     model: ["Constant", "Pulsatile"]
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     Layout.preferredWidth: 120
                     onCurrentTextChanged: {
                         if (currentText === "Pulsatile") {
@@ -987,11 +995,11 @@ ApplicationWindow {
             RowLayout {
                 spacing: 8
                 visible: advModeCombo.currentText === "Pulsatile"
-                Label { text: "Shape:"; font.pixelSize: 12 }
+                Label { text: "Shape:"; font.pixelSize: 14 }
                 ComboBox {
                     id: advShapeCombo
                     model: ["Square", "Sinusoidal"]
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     Layout.preferredWidth: 120
                 }
             }
@@ -1001,7 +1009,7 @@ ApplicationWindow {
                 spacing: 8
                 Label {
                     text: advModeCombo.currentText === "Pulsatile" ? "Max flow (µL/min):" : "Base flow (µL/min):"
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                 }
                 TextField {
                     id: advBaseFlowField
@@ -1009,7 +1017,7 @@ ApplicationWindow {
                     text: "0.00"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
                 TextField {
@@ -1018,7 +1026,7 @@ ApplicationWindow {
                     text: "0.00"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
             }
@@ -1026,13 +1034,13 @@ ApplicationWindow {
             RowLayout {
                 spacing: 8
                 visible: advModeCombo.currentText === "Pulsatile"
-                Label { text: "Period (s):"; font.pixelSize: 12 }
+                Label { text: "Period (s):"; font.pixelSize: 14 }
                 TextField {
                     id: advPeriodField
                     text: "2.0"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
             }
@@ -1040,13 +1048,13 @@ ApplicationWindow {
             RowLayout {
                 spacing: 8
                 visible: advModeCombo.currentText === "Pulsatile" && advShapeCombo.currentText === "Square"
-                Label { text: "Duty (%):"; font.pixelSize: 12 }
+                Label { text: "Duty (%):"; font.pixelSize: 14 }
                 TextField {
                     id: advDutyField
                     text: "50"
                     validator: DoubleValidator { bottom: 1; top: 99; decimals: 1 }
                     Layout.preferredWidth: 70
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
             }
@@ -1054,26 +1062,26 @@ ApplicationWindow {
             RowLayout {
                 spacing: 8
                 visible: advModeCombo.currentText === "Pulsatile"
-                Label { text: "Min flow (µL/min):"; font.pixelSize: 12 }
+                Label { text: "Min flow (µL/min):"; font.pixelSize: 14 }
                 TextField {
                     id: advMinFlowField
                     text: "0.00"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
             }
 
             RowLayout {
                 spacing: 8
-                Label { text: "Total run time (min):"; font.pixelSize: 12 }
+                Label { text: "Total run time (min):"; font.pixelSize: 14 }
                 TextField {
                     id: advTotalMinutesField
                     text: "5.0"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
             }
@@ -1081,29 +1089,29 @@ ApplicationWindow {
             CheckBox {
                 id: advStepCheck
                 text: "Change flow after time"
-                font.pixelSize: 12
+                font.pixelSize: 14
                 visible: advModeCombo.currentText === "Constant"
             }
 
             RowLayout {
                 spacing: 8
                 visible: advModeCombo.currentText === "Constant" && advStepCheck.checked
-                Label { text: "After (min):"; font.pixelSize: 12 }
+                Label { text: "After (min):"; font.pixelSize: 14 }
                 TextField {
                     id: advStepMinField
                     text: "2.0"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 70
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
-                Label { text: "New flow (µL/min):"; font.pixelSize: 12 }
+                Label { text: "New flow (µL/min):"; font.pixelSize: 14 }
                 TextField {
                     id: advStepFlowField
                     text: "0.00"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
                 }
             }
@@ -1169,7 +1177,7 @@ ApplicationWindow {
 
                 TabButton {
                     text: "Set up"
-                    font.pixelSize: 13
+                    font.pixelSize: 16
                     contentItem: Text {
                         text:  parent.text
                         font:  parent.font
@@ -1190,7 +1198,7 @@ ApplicationWindow {
 
                 TabButton {
                     text: "Run"
-                    font.pixelSize: 13
+                    font.pixelSize: 16
                     contentItem: Text {
                         text:  parent.text
                         font:  parent.font
