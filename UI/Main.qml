@@ -62,8 +62,8 @@ ApplicationWindow {
         cardBgSelected:     "#1a3a5c",
         cardBorder:         "#2a4060",
         cardBorderSelected: "#42a5f5",
-        buttonBg:           "#1565c0",
-        buttonFlash:        "#0d47a1",
+        buttonBg:           "#2a3a4a",
+        buttonFlash:        "#1a2535",
         timerColor:         "#ffffff",
         pausedColor:        "#ffffff",
         stepColor:          "#ffffff",
@@ -79,6 +79,19 @@ ApplicationWindow {
 
     function switchTheme(t) {
         theme = t;
+        // Push directly to every card — property-var binding chains are
+        // unreliable across multiple component boundaries in Qt 5/6.
+        var sc = [setup.pump1, setup.pump2, setup.pump3,
+                  setup.pump4, setup.pump5, setup.pump6,
+                  setup.pump7, setup.pump8, setup.pump9];
+        for (var i = 0; i < sc.length; i++)
+            if (sc[i]) sc[i].themeColors = t;
+        var rc = [run.r1, run.r2, run.r3, run.r4,
+                  run.r5, run.r6, run.r7, run.r8, run.r9];
+        for (var j = 0; j < rc.length; j++)
+            if (rc[j]) rc[j].themeColors = t;
+        setup.themeColors = t;
+        run.themeColors   = t;
     }
 
     function persistTheme() {
@@ -498,11 +511,23 @@ ApplicationWindow {
                             Layout.preferredWidth: 130
                         }
 
-                        // Colour swatch
+                        // Colour swatch — tap to open color wheel picker
                         Rectangle {
-                            width: 24; height: 24; radius: 4
+                            width: 28; height: 28; radius: 4
                             color: themeDialog.editColors[colorKey] || "#888888"
-                            border.color: "#555"; border.width: 1
+                            border.color: swatchArea.containsMouse ? "#fff" : "#555"
+                            border.width: swatchArea.containsMouse ? 2 : 1
+                            MouseArea {
+                                id: swatchArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    colorPicker.activeKey    = colorKey;
+                                    colorPicker.initialColor = themeDialog.editColors[colorKey] || "#888888";
+                                    colorPicker.open();
+                                }
+                            }
                         }
 
                         // Hex text field
@@ -593,6 +618,19 @@ ApplicationWindow {
                     themeDialog.close();
                 }
             }
+        }
+    }
+
+    // Color wheel picker — opened from theme dialog swatches
+    ColorPickerDialog {
+        id: colorPicker
+        property string activeKey: ""
+        onColorAccepted: function(hex) {
+            var tmp = JSON.parse(JSON.stringify(themeDialog.editColors));
+            tmp[activeKey] = hex;
+            themeDialog.editColors = tmp;
+            editColorRepeater.model = 0;
+            editColorRepeater.model = themeDialog.colorKeys.length;
         }
     }
 
@@ -1387,9 +1425,8 @@ ApplicationWindow {
             } catch(e) {}
         }
 
-        // Propagate theme reactively to both pages
-        setup.themeColors = Qt.binding(function() { return app.theme; });
-        run.themeColors   = Qt.binding(function() { return app.theme; });
+        // Push initial theme to all cards
+        switchTheme(theme);
 
         if (typeof backend !== "undefined" && backend.refreshPorts)
             backend.refreshPorts();
