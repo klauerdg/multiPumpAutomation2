@@ -40,41 +40,33 @@ ApplicationWindow {
 
     // Built-in theme presets
     readonly property var _bluesLight: ({
-        pageBg:             "#e3f2fd",
-        toolbarBg:          "#1565c0",
-        toolbarText:        "#ffffff",
+        pageBg:             "#eef1f5",
+        toolbarBg:          "#546e7a",
         cardBg:             "#ffffff",
-        cardBgSelected:     "#bbdefb",
-        cardBorder:         "#90caf9",
-        cardBorderSelected: "#1565c0",
-        buttonBg:           "#1976d2",
-        buttonFlash:        "#0d47a1",
-        buttonText:         "#ffffff",
-        textPrimary:        "#212121",
-        textSecondary:      "#546e7a",
+        cardBgSelected:     "#dce8f0",
+        cardBorder:         "#b0bec5",
+        cardBorderSelected: "#455a64",
+        buttonBg:           "#607d8b",
+        buttonFlash:        "#37474f",
         timerColor:         "#1565c0",
-        pausedColor:        "#e65100",
+        pausedColor:        "#bf360c",
         stepColor:          "#2e7d32",
-        primeActive:        "#ffcdd2",
-        primeInactive:      "#e0e0e0"
+        primeActive:        "#ffccbc",
+        primeInactive:      "#eceff1"
     })
 
     readonly property var _dark: ({
         pageBg:             "#0d1b2a",
         toolbarBg:          "#0a1225",
-        toolbarText:        "#e0f0ff",
         cardBg:             "#1a2a3a",
         cardBgSelected:     "#1a3a5c",
         cardBorder:         "#2a4060",
         cardBorderSelected: "#42a5f5",
         buttonBg:           "#1565c0",
         buttonFlash:        "#0d47a1",
-        buttonText:         "#e0f0ff",
-        textPrimary:        "#e0e0e0",
-        textSecondary:      "#90a4ae",
-        timerColor:         "#90caf9",
-        pausedColor:        "#ff8a65",
-        stepColor:          "#81c784",
+        timerColor:         "#ffffff",
+        pausedColor:        "#ffffff",
+        stepColor:          "#ffffff",
         primeActive:        "#7f2a20",
         primeInactive:      "#2a3a4a"
     })
@@ -96,6 +88,15 @@ ApplicationWindow {
         });
         if (typeof backend !== "undefined" && backend.save_theme)
             backend.save_theme(payload);
+    }
+
+    // Auto-compute black or white text to contrast against a hex background colour
+    function contrastColor(hex) {
+        if (!hex || hex.length < 7) return "#000000";
+        var r = parseInt(hex.slice(1, 3), 16) / 255;
+        var g = parseInt(hex.slice(3, 5), 16) / 255;
+        var b = parseInt(hex.slice(5, 7), 16) / 255;
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 0.5 ? "#000000" : "#ffffff";
     }
 
     /* ===================== Small helpers ===================== */
@@ -280,7 +281,7 @@ ApplicationWindow {
         modal: true
         closePolicy: Popup.CloseOnEscape
         title: "Load Preset"
-        standardButtons: Dialog.Ok | Dialog.Cancel
+        standardButtons: Dialog.NoButton
         property int selectedIndex: -1
 
         contentItem: ColumnLayout {
@@ -314,12 +315,47 @@ ApplicationWindow {
 
         onOpened: refresh()
 
-        onAccepted: {
-            if (selectedIndex < 0 || selectedIndex >= presetNamesModel.count)
-                return;
-            var name = presetNamesModel.get(selectedIndex).name;
-            console.log("Load preset:", name);
-            applyConfig(presetMap[name]);
+        footer: RowLayout {
+            spacing: 8
+            Button {
+                text: "Delete Preset"
+                font.pixelSize: 11
+                enabled: loadPresetDialog.selectedIndex >= 0
+                onClicked: {
+                    if (loadPresetDialog.selectedIndex < 0) return;
+                    var name = presetNamesModel.get(loadPresetDialog.selectedIndex).name;
+                    var updated = JSON.parse(JSON.stringify(presetMap));
+                    delete updated[name];
+                    presetMap = updated;
+                    persistPresets();
+                    loadPresetDialog.refresh();
+                }
+                background: Rectangle { radius: 4; color: "#c62828" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font; color: "#fff"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment:   Text.AlignVCenter
+                }
+            }
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Cancel"
+                font.pixelSize: 12
+                onClicked: loadPresetDialog.close()
+            }
+            Button {
+                text: "Load"
+                font.pixelSize: 12
+                enabled: loadPresetDialog.selectedIndex >= 0
+                onClicked: {
+                    if (loadPresetDialog.selectedIndex < 0 ||
+                        loadPresetDialog.selectedIndex >= presetNamesModel.count) return;
+                    var name = presetNamesModel.get(loadPresetDialog.selectedIndex).name;
+                    console.log("Load preset:", name);
+                    applyConfig(presetMap[name]);
+                    loadPresetDialog.close();
+                }
+            }
         }
     }
 
@@ -336,7 +372,7 @@ ApplicationWindow {
         modal: true
         closePolicy: Popup.CloseOnEscape
         title: "Theme Settings"
-        width: 500
+        width: 575
 
         property var editColors: ({})   // working copy while dialog is open
 
@@ -354,19 +390,17 @@ ApplicationWindow {
         property var colorKeys: [
             ["pageBg",             "Page background"],
             ["toolbarBg",          "Toolbar"],
-            ["toolbarText",        "Toolbar text"],
             ["cardBg",             "Card background"],
             ["cardBgSelected",     "Card selected bg"],
             ["cardBorder",         "Card border"],
             ["cardBorderSelected", "Card selected border"],
             ["buttonBg",           "Button"],
             ["buttonFlash",        "Button flash"],
-            ["buttonText",         "Button text"],
-            ["textPrimary",        "Primary text"],
-            ["textSecondary",      "Secondary text"],
             ["timerColor",         "Timer text"],
             ["pausedColor",        "Paused badge"],
-            ["stepColor",          "Step-change text"]
+            ["stepColor",          "Step-change text"],
+            ["primeActive",        "Prime (active)"],
+            ["primeInactive",      "Prime (idle)"]
         ]
 
         contentItem: ColumnLayout {
@@ -410,11 +444,32 @@ ApplicationWindow {
                 ComboBox {
                     id: savedThemeCombo
                     model: Object.keys(app.savedThemes)
-                    Layout.preferredWidth: 130
+                    Layout.preferredWidth: 120
                     visible: count > 0
                     onActivated: {
                         var t = app.savedThemes[currentText];
                         if (t) themeDialog.loadEditor(t);
+                    }
+                }
+                Button {
+                    text: "Delete"
+                    font.pixelSize: 11
+                    Layout.preferredWidth: 65
+                    visible: savedThemeCombo.count > 0
+                    onClicked: {
+                        var name = savedThemeCombo.currentText;
+                        if (!name) return;
+                        var updated = JSON.parse(JSON.stringify(app.savedThemes));
+                        delete updated[name];
+                        app.savedThemes = updated;
+                        savedThemeCombo.model = Object.keys(app.savedThemes);
+                        app.persistTheme();
+                    }
+                    background: Rectangle { radius: 4; color: "#c62828" }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#fff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment:   Text.AlignVCenter
                     }
                 }
             }
@@ -503,6 +558,26 @@ ApplicationWindow {
 
         footer: RowLayout {
             spacing: 8
+            Button {
+                text: "Delete Theme"
+                font.pixelSize: 11
+                visible: savedThemeCombo.count > 0
+                onClicked: {
+                    var name = savedThemeCombo.currentText;
+                    if (!name) return;
+                    var updated = JSON.parse(JSON.stringify(app.savedThemes));
+                    delete updated[name];
+                    app.savedThemes = updated;
+                    savedThemeCombo.model = Object.keys(app.savedThemes);
+                    app.persistTheme();
+                }
+                background: Rectangle { radius: 4; color: "#c62828" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font; color: "#fff"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment:   Text.AlignVCenter
+                }
+            }
             Item { Layout.fillWidth: true }
             Button {
                 text: "Cancel"

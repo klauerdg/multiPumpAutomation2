@@ -28,21 +28,19 @@ Item {
 
     // ── Theme (set from Main.qml via Qt.binding) ─────────────────────────────
     property var themeColors: ({
-        pageBg:             "#e3f2fd",
-        toolbarBg:          "#1565c0",
-        toolbarText:        "#ffffff",
+        pageBg:             "#eef1f5",
+        toolbarBg:          "#546e7a",
         cardBg:             "#ffffff",
-        cardBgSelected:     "#bbdefb",
-        cardBorder:         "#90caf9",
-        cardBorderSelected: "#1565c0",
-        buttonBg:           "#1976d2",
-        buttonFlash:        "#0d47a1",
-        buttonText:         "#ffffff",
-        textPrimary:        "#212121",
-        textSecondary:      "#546e7a",
+        cardBgSelected:     "#dce8f0",
+        cardBorder:         "#b0bec5",
+        cardBorderSelected: "#455a64",
+        buttonBg:           "#607d8b",
+        buttonFlash:        "#37474f",
         timerColor:         "#1565c0",
-        primeActive:        "#ffcdd2",
-        primeInactive:      "#e0e0e0"
+        pausedColor:        "#bf360c",
+        stepColor:          "#2e7d32",
+        primeActive:        "#ffccbc",
+        primeInactive:      "#eceff1"
     })
 
     // ── Page background ───────────────────────────────────────────────────────
@@ -154,15 +152,15 @@ Item {
             Layout.fillWidth:  true
             Layout.fillHeight: true
 
-            PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 1"; themeColors: themeColors }
-            PumpCardForm { id: pc8; pumpId: 8; titleLabel.text: "Pump 2"; themeColors: themeColors }
-            PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 3"; themeColors: themeColors }
-            PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 4"; themeColors: themeColors }
-            PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 5"; themeColors: themeColors }
-            PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 6"; themeColors: themeColors }
-            PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 7"; themeColors: themeColors }
-            PumpCardForm { id: pc5; pumpId: 5; titleLabel.text: "Pump 8"; themeColors: themeColors }
-            PumpCardForm { id: pc4; pumpId: 4; titleLabel.text: "Pump 9"; themeColors: themeColors }
+            PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 1"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc8; pumpId: 8; titleLabel.text: "Pump 2"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 3"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 4"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 5"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 6"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 7"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc5; pumpId: 5; titleLabel.text: "Pump 8"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc4; pumpId: 4; titleLabel.text: "Pump 9"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
         }
     }
 }
