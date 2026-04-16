@@ -569,3 +569,28 @@ class QBackend(QObject):
                 return f.read()
         except Exception:
             return "{}"
+
+    # ---------- Theme file I/O ----------
+
+    @Slot(str)
+    def save_theme(self, json_str: str):
+        """Write theme JSON to theme.json next to main.py."""
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme.json")
+        try:
+            with open(path, "w") as f:
+                f.write(json_str)
+            print(f"[QBackend] Theme saved to {path}")
+        except Exception as e:
+            print(f"[QBackend] Failed to save theme: {e}")
+
+    @Slot(result=str)
+    def load_theme(self) -> str:
+        """Read theme JSON from theme.json next to main.py."""
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme.json")
+        try:
+            with open(path) as f:
+                return f.read()
+        except Exception:
+            return "{}"

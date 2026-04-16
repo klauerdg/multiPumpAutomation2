@@ -8,8 +8,8 @@ import QtQuick.VirtualKeyboard 2.4
 ApplicationWindow {
     id: app
     visible: true
-    width: 1280
-    height: 800
+    width:  1024
+    height: 600
     title: "Microfluidic Pump Controller"
 
     // Pumps chosen for automation (by pump index 1..9)
@@ -35,6 +35,69 @@ ApplicationWindow {
     property var autoMinFlows: []
     property var autoMaxFlows: []
     property bool automationPending: false
+
+    /* ===================== Theme system ===================== */
+
+    // Built-in theme presets
+    readonly property var _bluesLight: ({
+        pageBg:             "#e3f2fd",
+        toolbarBg:          "#1565c0",
+        toolbarText:        "#ffffff",
+        cardBg:             "#ffffff",
+        cardBgSelected:     "#bbdefb",
+        cardBorder:         "#90caf9",
+        cardBorderSelected: "#1565c0",
+        buttonBg:           "#1976d2",
+        buttonFlash:        "#0d47a1",
+        buttonText:         "#ffffff",
+        textPrimary:        "#212121",
+        textSecondary:      "#546e7a",
+        timerColor:         "#1565c0",
+        pausedColor:        "#e65100",
+        stepColor:          "#2e7d32",
+        primeActive:        "#ffcdd2",
+        primeInactive:      "#e0e0e0"
+    })
+
+    readonly property var _dark: ({
+        pageBg:             "#0d1b2a",
+        toolbarBg:          "#0a1225",
+        toolbarText:        "#e0f0ff",
+        cardBg:             "#1a2a3a",
+        cardBgSelected:     "#1a3a5c",
+        cardBorder:         "#2a4060",
+        cardBorderSelected: "#42a5f5",
+        buttonBg:           "#1565c0",
+        buttonFlash:        "#0d47a1",
+        buttonText:         "#e0f0ff",
+        textPrimary:        "#e0e0e0",
+        textSecondary:      "#90a4ae",
+        timerColor:         "#90caf9",
+        pausedColor:        "#ff8a65",
+        stepColor:          "#81c784",
+        primeActive:        "#7f2a20",
+        primeInactive:      "#2a3a4a"
+    })
+
+    // Currently active theme object
+    property var theme: _bluesLight
+
+    // User-saved custom themes (name → color object), loaded from file on start
+    property var savedThemes: ({})
+
+    function switchTheme(t) {
+        theme = t;
+    }
+
+    function persistTheme() {
+        var payload = JSON.stringify({
+            saved: savedThemes,
+            current: theme
+        });
+        if (typeof backend !== "undefined" && backend.save_theme)
+            backend.save_theme(payload);
+    }
+
     /* ===================== Small helpers ===================== */
 
     function pad(n) {
@@ -262,6 +325,201 @@ ApplicationWindow {
 
     function handleSavePreset() { presetNameField.text = ""; savePresetDialog.open(); }
     function handleLoadPreset() { loadPresetDialog.open(); }
+
+    /* ===================== Theme Settings Dialog ===================== */
+
+    // Helper to build a color-row: label + swatch + hex field
+    // (Declared as a Component so we can reuse it inside the dialog's GridLayout)
+
+    Dialog {
+        id: themeDialog
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: "Theme Settings"
+        width: 500
+
+        property var editColors: ({})   // working copy while dialog is open
+
+        function loadEditor(src) {
+            // Deep-copy the source into editColors so we can cancel without side-effects
+            editColors = JSON.parse(JSON.stringify(src));
+            // Refresh all the TextField bindings (they read editColors[key])
+            editColorRepeater.model = 0;
+            editColorRepeater.model = colorKeys.length;
+        }
+
+        onOpened: loadEditor(app.theme)
+
+        // Ordered list of (key, label) pairs shown in the dialog
+        property var colorKeys: [
+            ["pageBg",             "Page background"],
+            ["toolbarBg",          "Toolbar"],
+            ["toolbarText",        "Toolbar text"],
+            ["cardBg",             "Card background"],
+            ["cardBgSelected",     "Card selected bg"],
+            ["cardBorder",         "Card border"],
+            ["cardBorderSelected", "Card selected border"],
+            ["buttonBg",           "Button"],
+            ["buttonFlash",        "Button flash"],
+            ["buttonText",         "Button text"],
+            ["textPrimary",        "Primary text"],
+            ["textSecondary",      "Secondary text"],
+            ["timerColor",         "Timer text"],
+            ["pausedColor",        "Paused badge"],
+            ["stepColor",          "Step-change text"]
+        ]
+
+        contentItem: ColumnLayout {
+            anchors.margins: 12
+            spacing: 10
+
+            // ── Preset row ────────────────────────────────────────────────────
+            RowLayout {
+                spacing: 8
+                Label { text: "Preset:"; font.pixelSize: 13 }
+                Button {
+                    text: "Blues Light"
+                    font.pixelSize: 12
+                    Layout.preferredWidth: 110
+                    onClicked: themeDialog.loadEditor(app._bluesLight)
+                    background: Rectangle {
+                        radius: 4; color: "#1976d2"
+                    }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#fff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment:   Text.AlignVCenter
+                    }
+                }
+                Button {
+                    text: "Dark"
+                    font.pixelSize: 12
+                    Layout.preferredWidth: 80
+                    onClicked: themeDialog.loadEditor(app._dark)
+                    background: Rectangle {
+                        radius: 4; color: "#0a1225"
+                    }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#e0f0ff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment:   Text.AlignVCenter
+                    }
+                }
+                Item { Layout.fillWidth: true }
+                // Saved custom themes
+                ComboBox {
+                    id: savedThemeCombo
+                    model: Object.keys(app.savedThemes)
+                    Layout.preferredWidth: 130
+                    visible: count > 0
+                    onActivated: {
+                        var t = app.savedThemes[currentText];
+                        if (t) themeDialog.loadEditor(t);
+                    }
+                }
+            }
+
+            // ── Color fields ──────────────────────────────────────────────────
+            GridLayout {
+                columns: 2
+                rowSpacing:    6
+                columnSpacing: 16
+                Layout.fillWidth: true
+
+                Repeater {
+                    id: editColorRepeater
+                    model: themeDialog.colorKeys.length
+
+                    delegate: RowLayout {
+                        spacing: 6
+                        Layout.fillWidth: true
+
+                        property string colorKey:   themeDialog.colorKeys[index][0]
+                        property string colorLabel: themeDialog.colorKeys[index][1]
+
+                        Label {
+                            text:  colorLabel
+                            font.pixelSize: 11
+                            Layout.preferredWidth: 130
+                        }
+
+                        // Colour swatch
+                        Rectangle {
+                            width: 24; height: 24; radius: 4
+                            color: themeDialog.editColors[colorKey] || "#888888"
+                            border.color: "#555"; border.width: 1
+                        }
+
+                        // Hex text field
+                        TextField {
+                            id: hexField
+                            text: themeDialog.editColors[colorKey] || ""
+                            font.pixelSize: 11
+                            Layout.preferredWidth: 80
+                            inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                            onEditingFinished: {
+                                var v = text.trim();
+                                if (/^#[0-9a-fA-F]{3,8}$/.test(v)) {
+                                    var tmp = JSON.parse(JSON.stringify(themeDialog.editColors));
+                                    tmp[colorKey] = v;
+                                    themeDialog.editColors = tmp;
+                                    // reset model to refresh swatches
+                                    editColorRepeater.model = 0;
+                                    editColorRepeater.model = themeDialog.colorKeys.length;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Save custom theme row ─────────────────────────────────────────
+            RowLayout {
+                spacing: 8
+                Label { text: "Save as:"; font.pixelSize: 12 }
+                TextField {
+                    id: customThemeNameField
+                    placeholderText: "My Theme"
+                    font.pixelSize: 12
+                    Layout.preferredWidth: 160
+                }
+                Button {
+                    text: "Save Theme"
+                    font.pixelSize: 12
+                    Layout.preferredWidth: 100
+                    onClicked: {
+                        var n = customThemeNameField.text.trim();
+                        if (!n.length) return;
+                        var updated = JSON.parse(JSON.stringify(app.savedThemes));
+                        updated[n] = JSON.parse(JSON.stringify(themeDialog.editColors));
+                        app.savedThemes = updated;
+                        savedThemeCombo.model = Object.keys(app.savedThemes);
+                        app.persistTheme();
+                        customThemeNameField.text = "";
+                    }
+                }
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Cancel"
+                font.pixelSize: 12
+                onClicked: themeDialog.close()
+            }
+            Button {
+                text: "Apply"
+                font.pixelSize: 12
+                onClicked: {
+                    app.switchTheme(JSON.parse(JSON.stringify(themeDialog.editColors)));
+                    app.persistTheme();
+                    themeDialog.close();
+                }
+            }
+        }
+    }
 
     /* ===================== Calibration (per-pump µL/min per pps) ===================== */
 
@@ -781,10 +1039,86 @@ ApplicationWindow {
 
     /* ===================== Tabs & Pages ===================== */
 
-    header: TabBar {
-        id: tabs
-        TabButton { text: "Set up" }
-        TabButton { text: "Run" }
+    header: Rectangle {
+        width:  parent.width
+        height: 42
+        color:  app.theme.toolbarBg || "#1565c0"
+        Behavior on color { ColorAnimation { duration: 200 } }
+
+        RowLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            TabBar {
+                id: tabs
+                Layout.fillWidth: true
+                background: Rectangle { color: "transparent" }
+
+                TabButton {
+                    text: "Set up"
+                    font.pixelSize: 13
+                    contentItem: Text {
+                        text:  parent.text
+                        font:  parent.font
+                        color: parent.checked
+                               ? (app.theme.toolbarBg    || "#1565c0")
+                               : (app.theme.toolbarText  || "#ffffff")
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment:   Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.checked
+                               ? (app.theme.pageBg    || "#e3f2fd")
+                               : "transparent"
+                        radius: 4
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+                }
+
+                TabButton {
+                    text: "Run"
+                    font.pixelSize: 13
+                    contentItem: Text {
+                        text:  parent.text
+                        font:  parent.font
+                        color: parent.checked
+                               ? (app.theme.toolbarBg   || "#1565c0")
+                               : (app.theme.toolbarText || "#ffffff")
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment:   Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.checked
+                               ? (app.theme.pageBg   || "#e3f2fd")
+                               : "transparent"
+                        radius: 4
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+                }
+            }
+
+            // Gear / theme-settings button
+            Button {
+                id: themeSettingsBtn
+                text: "⚙"
+                font.pixelSize: 18
+                Layout.preferredWidth:  42
+                Layout.preferredHeight: 42
+                flat: true
+                onClicked: themeDialog.open()
+                contentItem: Text {
+                    text:  parent.text
+                    font:  parent.font
+                    color: app.theme.toolbarText || "#ffffff"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment:   Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.pressed ? Qt.darker(app.theme.toolbarBg || "#1565c0", 1.3)
+                                          : "transparent"
+                }
+            }
+        }
     }
 
     StackLayout {
@@ -966,6 +1300,21 @@ ApplicationWindow {
                     presetMap = saved;
             } catch(e) {}
         }
+
+        // Load saved themes from file via backend
+        if (typeof backend !== "undefined" && backend.load_theme) {
+            try {
+                var td = JSON.parse(backend.load_theme());
+                if (td && td.saved && typeof td.saved === "object")
+                    savedThemes = td.saved;
+                if (td && td.current && typeof td.current === "object")
+                    theme = td.current;
+            } catch(e) {}
+        }
+
+        // Propagate theme reactively to both pages
+        setup.themeColors = Qt.binding(function() { return app.theme; });
+        run.themeColors   = Qt.binding(function() { return app.theme; });
 
         if (typeof backend !== "undefined" && backend.refreshPorts)
             backend.refreshPorts();
