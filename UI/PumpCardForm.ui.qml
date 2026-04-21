@@ -17,7 +17,7 @@ Item {
     property double advDuty:         50.0
     property double advMinFlow:      0.0
     property double advMaxFlow:      0.0
-    property double advTotalMinutes: 5.0
+    property double advTotalMinutes: 0.0
     property bool   advStepEnabled:  false
     property double advStepMinutes:  2.0
     property double advStepFlow:     0.0
@@ -166,7 +166,9 @@ Item {
 
             Label {
                 visible:        root.advMode === "Constant"
-                text:           "Run: " + root.advTotalMinutes.toFixed(1) + " min"
+                text:           root.advTotalMinutes > 0
+                                ? "Run: " + root.advTotalMinutes.toFixed(1) + " min"
+                                : "Run: no time limit"
                 font.pixelSize: 13
                 color:          Qt.alpha(root._cardText, 0.65)
             }

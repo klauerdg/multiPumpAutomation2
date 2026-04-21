@@ -277,12 +277,26 @@ ApplicationWindow {
             border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
         }
         palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+        palette.text:       app.contrastColor(app.theme.inputBg || "#ffffff")
+        palette.base:       app.theme.inputBg  || "#ffffff"
+        palette.button:     app.theme.buttonBg || "#607d8b"
+        palette.buttonText: app.contrastColor(app.theme.buttonBg || "#607d8b")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
             spacing: 8
-            Label { text: "Preset name:" }
-            TextField { id: presetNameField; Layout.preferredWidth: 260 }
+            Label { text: "Preset name:"; font.pixelSize: 14 }
+            TextField {
+                id: presetNameField
+                Layout.preferredWidth: 260
+                font.pixelSize: 14
+                color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                background: Rectangle {
+                    radius: 4
+                    color: app.theme.inputBg || "#ffffff"
+                    border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                }
+            }
         }
 
         onAccepted: {
@@ -310,6 +324,12 @@ ApplicationWindow {
             border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
         }
         palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+        palette.text:       app.contrastColor(app.theme.inputBg || "#ffffff")
+        palette.base:       app.theme.inputBg  || "#ffffff"
+        palette.button:     app.theme.buttonBg || "#607d8b"
+        palette.buttonText: app.contrastColor(app.theme.buttonBg || "#607d8b")
+        palette.highlight:           app.theme.cardBgSelected || "#dce8f0"
+        palette.highlightedText:     app.contrastColor(app.theme.cardBgSelected || "#dce8f0")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -406,20 +426,50 @@ ApplicationWindow {
             border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
         }
         palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+        palette.text:       app.contrastColor(app.theme.inputBg || "#ffffff")
+        palette.base:       app.theme.inputBg  || "#ffffff"
+        palette.button:     app.theme.buttonBg || "#607d8b"
+        palette.buttonText: app.contrastColor(app.theme.buttonBg || "#607d8b")
 
         property var editColors: ({})   // working copy while dialog is open
+        property string editorMode: "Simple"   // "Simple" or "Advanced"
 
-        function loadEditor(src) {
-            // Deep-copy the source into editColors so we can cancel without side-effects
-            editColors = JSON.parse(JSON.stringify(src));
-            // Refresh all the TextField bindings (they read editColors[key])
-            editColorRepeater.model = 0;
-            editColorRepeater.model = colorKeys.length;
+        // ── Color helpers for simple-mode auto-derivation ─────────────────────
+        function _darken(hex, factor) {
+            if (!hex || hex.length < 7) return hex;
+            var r = Math.round(Math.max(0, parseInt(hex.slice(1,3),16) * (1-factor)));
+            var g = Math.round(Math.max(0, parseInt(hex.slice(3,5),16) * (1-factor)));
+            var b = Math.round(Math.max(0, parseInt(hex.slice(5,7),16) * (1-factor)));
+            return "#" + ("0"+r.toString(16)).slice(-2)
+                       + ("0"+g.toString(16)).slice(-2)
+                       + ("0"+b.toString(16)).slice(-2);
+        }
+        function _lighten(hex, factor) {
+            if (!hex || hex.length < 7) return hex;
+            var r = parseInt(hex.slice(1,3),16); r = Math.round(r + (255-r)*factor);
+            var g = parseInt(hex.slice(3,5),16); g = Math.round(g + (255-g)*factor);
+            var b = parseInt(hex.slice(5,7),16); b = Math.round(b + (255-b)*factor);
+            return "#" + ("0"+Math.min(255,r).toString(16)).slice(-2)
+                       + ("0"+Math.min(255,g).toString(16)).slice(-2)
+                       + ("0"+Math.min(255,b).toString(16)).slice(-2);
         }
 
+        function loadEditor(src) {
+            editColors = JSON.parse(JSON.stringify(src));
+            _refreshRepeaters();
+        }
+
+        function _refreshRepeaters() {
+            editColorRepeater.model = 0;
+            editColorRepeater.model = colorKeys.length;
+            simpleRepeater.model = 0;
+            simpleRepeater.model = simpleKeys.length;
+        }
+
+        onEditorModeChanged: _refreshRepeaters()
         onOpened: loadEditor(app.theme)
 
-        // Ordered list of (key, label) pairs shown in the dialog
+        // ── Advanced: all 14 keys ─────────────────────────────────────────────
         property var colorKeys: [
             ["pageBg",             "Page background"],
             ["toolbarBg",          "Toolbar"],
@@ -437,6 +487,21 @@ ApplicationWindow {
             ["inputBg",            "Flow rate field"]
         ]
 
+        // ── Simple: 8 representative keys with auto-derivation ────────────────
+        // Each entry: [key, label, [[derivedKey, "darken"|"lighten"|"copy", amount], ...]]
+        property var simpleKeys: [
+            ["pageBg",         "Page Background",  []],
+            ["toolbarBg",      "Toolbar",           []],
+            ["cardBg",         "Card Background",   [["cardBgSelected","lighten",0.30],
+                                                     ["cardBorder",    "lighten",-0.10],
+                                                     ["cardBorderSelected","darken",0.15]]],
+            ["buttonBg",       "Buttons",           [["buttonFlash",   "darken", 0.25]]],
+            ["timerColor",     "Accent / Timers",   [["pausedColor",   "copy",   0],
+                                                     ["stepColor",     "copy",   0]]],
+            ["inputBg",        "Input Fields",      []],
+            ["primeActive",    "Prime (active)",    [["primeInactive", "lighten",0.40]]]
+        ]
+
         contentItem: ColumnLayout {
             anchors.margins: 12
             spacing: 10
@@ -450,13 +515,10 @@ ApplicationWindow {
                     font.pixelSize: 14
                     Layout.preferredWidth: 110
                     onClicked: themeDialog.loadEditor(app._bluesLight)
-                    background: Rectangle {
-                        radius: 4; color: "#546e7a"
-                    }
+                    background: Rectangle { radius: 4; color: "#546e7a" }
                     contentItem: Text {
                         text: parent.text; font: parent.font; color: "#fff"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment:   Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                     }
                 }
                 Button {
@@ -464,17 +526,13 @@ ApplicationWindow {
                     font.pixelSize: 14
                     Layout.preferredWidth: 80
                     onClicked: themeDialog.loadEditor(app._dark)
-                    background: Rectangle {
-                        radius: 4; color: "#0a1225"
-                    }
+                    background: Rectangle { radius: 4; color: "#0a1225" }
                     contentItem: Text {
                         text: parent.text; font: parent.font; color: "#e0f0ff"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment:   Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                     }
                 }
                 Item { Layout.fillWidth: true }
-                // Saved custom themes
                 ComboBox {
                     id: savedThemeCombo
                     model: Object.keys(app.savedThemes)
@@ -485,34 +543,103 @@ ApplicationWindow {
                         if (t) themeDialog.loadEditor(t);
                     }
                 }
-                Button {
-                    text: "Delete"
-                    font.pixelSize: 16
-                    Layout.preferredWidth: 65
-                    visible: savedThemeCombo.count > 0
-                    onClicked: {
-                        var name = savedThemeCombo.currentText;
-                        if (!name) return;
-                        var updated = JSON.parse(JSON.stringify(app.savedThemes));
-                        delete updated[name];
-                        app.savedThemes = updated;
-                        savedThemeCombo.model = Object.keys(app.savedThemes);
-                        app.persistTheme();
+            }
+
+            // ── Simple / Advanced selector ────────────────────────────────────
+            RowLayout {
+                spacing: 8
+                Label { text: "Editor:"; font.pixelSize: 14 }
+                ComboBox {
+                    id: editorModeCombo
+                    model: ["Simple", "Advanced"]
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 120
+                    currentIndex: themeDialog.editorMode === "Advanced" ? 1 : 0
+                    onActivated: themeDialog.editorMode = currentText
+                    background: Rectangle {
+                        radius: 4
+                        color:  app.theme.inputBg || "#ffffff"
+                        border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
                     }
-                    background: Rectangle { radius: 4; color: "#c62828" }
                     contentItem: Text {
-                        text: parent.text; font: parent.font; color: "#fff"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment:   Text.AlignVCenter
+                        leftPadding: 8
+                        text: editorModeCombo.displayText
+                        font: editorModeCombo.font
+                        color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+
+            // ── Simple editor ─────────────────────────────────────────────────
+            GridLayout {
+                visible: themeDialog.editorMode === "Simple"
+                columns: 2
+                rowSpacing: 6; columnSpacing: 16
+                Layout.fillWidth: true
+
+                Repeater {
+                    id: simpleRepeater
+                    model: themeDialog.simpleKeys.length
+
+                    delegate: RowLayout {
+                        spacing: 6
+                        Layout.fillWidth: true
+
+                        property string colorKey:   themeDialog.simpleKeys[index][0]
+                        property string colorLabel: themeDialog.simpleKeys[index][1]
+                        property var    derivedRules: themeDialog.simpleKeys[index][2]
+
+                        Label { text: colorLabel; font.pixelSize: 16; Layout.preferredWidth: 140 }
+
+                        Rectangle {
+                            width: 28; height: 28; radius: 4
+                            color: themeDialog.editColors[colorKey] || "#888888"
+                            border.color: "#555"; border.width: 1
+                        }
+
+                        TextField {
+                            text: themeDialog.editColors[colorKey] || ""
+                            font.pixelSize: 16
+                            Layout.preferredWidth: 84
+                            color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                            inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                            background: Rectangle {
+                                radius: 4
+                                color: app.theme.inputBg || "#ffffff"
+                                border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                            }
+                            onEditingFinished: {
+                                var v = text.trim();
+                                if (!/^#[0-9a-fA-F]{3,8}$/.test(v)) return;
+                                var tmp = JSON.parse(JSON.stringify(themeDialog.editColors));
+                                tmp[colorKey] = v;
+                                // Auto-derive related colors
+                                var rules = derivedRules;
+                                for (var d = 0; d < rules.length; d++) {
+                                    var dKey = rules[d][0];
+                                    var dOp  = rules[d][1];
+                                    var dAmt = rules[d][2];
+                                    if (dOp === "copy")    tmp[dKey] = v;
+                                    else if (dOp === "darken")  tmp[dKey] = themeDialog._darken(v, dAmt);
+                                    else if (dOp === "lighten") tmp[dKey] = dAmt >= 0
+                                                                           ? themeDialog._lighten(v, dAmt)
+                                                                           : themeDialog._darken(v, -dAmt);
+                                }
+                                themeDialog.editColors = tmp;
+                                themeDialog._refreshRepeaters();
+                            }
+                        }
                     }
                 }
             }
 
-            // ── Color fields ──────────────────────────────────────────────────
+            // ── Advanced editor ───────────────────────────────────────────────
             GridLayout {
+                visible: themeDialog.editorMode === "Advanced"
                 columns: 2
-                rowSpacing:    6
-                columnSpacing: 16
+                rowSpacing: 6; columnSpacing: 16
                 Layout.fillWidth: true
 
                 Repeater {
@@ -526,35 +653,33 @@ ApplicationWindow {
                         property string colorKey:   themeDialog.colorKeys[index][0]
                         property string colorLabel: themeDialog.colorKeys[index][1]
 
-                        Label {
-                            text:  colorLabel
-                            font.pixelSize: 16
-                            Layout.preferredWidth: 130
-                        }
+                        Label { text: colorLabel; font.pixelSize: 16; Layout.preferredWidth: 140 }
 
-                        // Colour swatch
                         Rectangle {
                             width: 28; height: 28; radius: 4
                             color: themeDialog.editColors[colorKey] || "#888888"
                             border.color: "#555"; border.width: 1
                         }
 
-                        // Hex text field
                         TextField {
                             id: hexField
                             text: themeDialog.editColors[colorKey] || ""
                             font.pixelSize: 16
-                            Layout.preferredWidth: 80
+                            Layout.preferredWidth: 84
+                            color: app.contrastColor(app.theme.inputBg || "#ffffff")
                             inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                            background: Rectangle {
+                                radius: 4
+                                color: app.theme.inputBg || "#ffffff"
+                                border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                            }
                             onEditingFinished: {
                                 var v = text.trim();
                                 if (/^#[0-9a-fA-F]{3,8}$/.test(v)) {
                                     var tmp = JSON.parse(JSON.stringify(themeDialog.editColors));
                                     tmp[colorKey] = v;
                                     themeDialog.editColors = tmp;
-                                    // reset model to refresh swatches
-                                    editColorRepeater.model = 0;
-                                    editColorRepeater.model = themeDialog.colorKeys.length;
+                                    themeDialog._refreshRepeaters();
                                 }
                             }
                         }
@@ -571,11 +696,23 @@ ApplicationWindow {
                     placeholderText: "My Theme"
                     font.pixelSize: 14
                     Layout.preferredWidth: 160
+                    color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                    background: Rectangle {
+                        radius: 4
+                        color: app.theme.inputBg || "#ffffff"
+                        border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                    }
                 }
                 Button {
                     text: "Save Theme"
                     font.pixelSize: 14
                     Layout.preferredWidth: 100
+                    background: Rectangle { radius: 4; color: app.theme.buttonBg || "#607d8b" }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font
+                        color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
                     onClicked: {
                         var n = customThemeNameField.text.trim();
                         if (!n.length) return;
@@ -587,36 +724,42 @@ ApplicationWindow {
                         customThemeNameField.text = "";
                     }
                 }
+                Button {
+                    text: "Delete Saved"
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 110
+                    visible: savedThemeCombo.count > 0
+                    background: Rectangle { radius: 4; color: "#c62828" }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#fff"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        var name = savedThemeCombo.currentText;
+                        if (!name) return;
+                        var updated = JSON.parse(JSON.stringify(app.savedThemes));
+                        delete updated[name];
+                        app.savedThemes = updated;
+                        savedThemeCombo.model = Object.keys(app.savedThemes);
+                        app.persistTheme();
+                    }
+                }
             }
         }
 
         footer: RowLayout {
             spacing: 8
-            Button {
-                text: "Delete Theme"
-                font.pixelSize: 16
-                visible: savedThemeCombo.count > 0
-                onClicked: {
-                    var name = savedThemeCombo.currentText;
-                    if (!name) return;
-                    var updated = JSON.parse(JSON.stringify(app.savedThemes));
-                    delete updated[name];
-                    app.savedThemes = updated;
-                    savedThemeCombo.model = Object.keys(app.savedThemes);
-                    app.persistTheme();
-                }
-                background: Rectangle { radius: 4; color: "#c62828" }
-                contentItem: Text {
-                    text: parent.text; font: parent.font; color: "#fff"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment:   Text.AlignVCenter
-                }
-            }
             Item { Layout.fillWidth: true }
             Button {
                 text: "Cancel"
                 font.pixelSize: 14
                 onClicked: themeDialog.close()
+                background: Rectangle { radius: 4; color: app.theme.buttonBg || "#607d8b" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font
+                    color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
             }
             Button {
                 text: "Apply"
@@ -625,6 +768,11 @@ ApplicationWindow {
                     app.switchTheme(JSON.parse(JSON.stringify(themeDialog.editColors)));
                     app.persistTheme();
                     themeDialog.close();
+                }
+                background: Rectangle { radius: 4; color: "#2e7d32" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font; color: "#ffffff"
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                 }
             }
         }
@@ -701,6 +849,10 @@ ApplicationWindow {
             border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
         }
         palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+        palette.text:       app.contrastColor(app.theme.inputBg || "#ffffff")
+        palette.base:       app.theme.inputBg  || "#ffffff"
+        palette.button:     app.theme.buttonBg || "#607d8b"
+        palette.buttonText: app.contrastColor(app.theme.buttonBg || "#607d8b")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -903,22 +1055,24 @@ ApplicationWindow {
             var summary = "";
 
             if (mode === "Constant") {
-                summary = "Constant \u2022 " + sc.advTotalMinutes.toFixed(1) + " min";
+                summary = "Constant" + (sc.advTotalMinutes > 0
+                          ? " \u2022 " + sc.advTotalMinutes.toFixed(1) + " min"
+                          : " \u2022 no time limit");
                 if (sc.advStepEnabled && sc.advStepMinutes > 0) {
                     summary += " \u2022 Change to " + sc.advStepFlow.toFixed(2)
                                + " \u00b5L/min at " + sc.advStepMinutes.toFixed(1) + " min";
                 }
-                rc.pumpEndSec  = Math.round(sc.advTotalMinutes * 60);
+                rc.pumpEndSec  = sc.advTotalMinutes > 0 ? Math.round(sc.advTotalMinutes * 60) : 0;
                 rc.pumpStepSec = sc.advStepEnabled ? Math.round(sc.advStepMinutes * 60) : -1;
 
             } else if (mode === "Pulsatile") {
                 rc.setFlowValue.text = sc.advMinFlow.toFixed(2) + " - " + sc.advMaxFlow.toFixed(2);
                 summary = sc.advShape + " pulsatile \u2022 "
-                          + sc.advTotalMinutes.toFixed(1) + " min \u2022 "
-                          + sc.advPeriod.toFixed(1) + " s period";
+                          + (sc.advTotalMinutes > 0 ? sc.advTotalMinutes.toFixed(1) + " min" : "no time limit")
+                          + " \u2022 " + sc.advPeriod.toFixed(1) + " s period";
                 if (sc.advShape === "Square")
                     summary += " \u2022 " + sc.advDuty.toFixed(1) + "% duty";
-                rc.pumpEndSec  = Math.round(sc.advTotalMinutes * 60);
+                rc.pumpEndSec  = sc.advTotalMinutes > 0 ? Math.round(sc.advTotalMinutes * 60) : 0;
                 rc.pumpStepSec = -1;
                 hasPulsatile   = true;
 
@@ -938,7 +1092,8 @@ ApplicationWindow {
             autoIds.push(pumpId);
             autoModes.push(mode === "" ? "Constant" : mode);
             autoShapes.push(sc.advShape  || "Square");
-            autoMins.push(sc.advTotalMinutes > 0 ? sc.advTotalMinutes : 5.0);
+            // Manual mode has no time limit — always push 0 so it never inflates automationTotalMinutes
+            autoMins.push(mode === "" ? 0 : sc.advTotalMinutes);
             autoPeriods.push(sc.advPeriod > 0 ? sc.advPeriod : 2.0);
             autoDuties.push((sc.advDuty  > 0 ? sc.advDuty : 50.0) / 100.0);
             autoMinFlows.push(sc.advMinFlow);
@@ -969,6 +1124,10 @@ ApplicationWindow {
             border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
         }
         palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+        palette.text:       app.contrastColor(app.theme.inputBg || "#ffffff")
+        palette.base:       app.theme.inputBg  || "#ffffff"
+        palette.button:     app.theme.buttonBg || "#607d8b"
+        palette.buttonText: app.contrastColor(app.theme.buttonBg || "#607d8b")
 
         contentItem: ColumnLayout {
             anchors.margins: 12
@@ -1075,14 +1234,28 @@ ApplicationWindow {
 
             RowLayout {
                 spacing: 8
-                Label { text: "Total run time (min):"; font.pixelSize: 14 }
+                CheckBox {
+                    id: advTimeLimitCheck
+                    text: "Time limit"
+                    font.pixelSize: 14
+                    checked: true
+                    // Tint indicator so it's readable on any background
+                    palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+                }
                 TextField {
                     id: advTotalMinutesField
-                    text: "5.0"
+                    text: "0.0"
+                    enabled: advTimeLimitCheck.checked
+                    opacity: advTimeLimitCheck.checked ? 1.0 : 0.4
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 80
                     font.pixelSize: 14
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                }
+                Label {
+                    text: "min"
+                    font.pixelSize: 14
+                    visible: advTimeLimitCheck.checked
                 }
             }
 
@@ -1122,10 +1295,32 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             Button {
                 text: "Close"
+                font.pixelSize: 14
                 onClicked: advancedDialog.close()
+                background: Rectangle {
+                    radius: 4
+                    color:  app.theme.buttonBg || "#607d8b"
+                    Behavior on color { ColorAnimation { duration: 80 } }
+                }
+                contentItem: Text {
+                    text: parent.text; font: parent.font
+                    color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
             }
             Button {
                 text: "Apply Advanced Settings"
+                font.pixelSize: 14
+                background: Rectangle {
+                    radius: 4
+                    color:  app.theme.buttonBg || "#607d8b"
+                    Behavior on color { ColorAnimation { duration: 80 } }
+                }
+                contentItem: Text {
+                    text: parent.text; font: parent.font
+                    color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
                 onClicked: {
                     var pumps = [setup.pump1, setup.pump2, setup.pump3,
                                  setup.pump4, setup.pump5, setup.pump6,
@@ -1135,7 +1330,9 @@ ApplicationWindow {
                         var card = pumps[i];
                         if (!card || !card.selected) continue;
                         card.advMode         = mode;
-                        card.advTotalMinutes = parseFloat(advTotalMinutesField.text) || 5.0;
+                        card.advTotalMinutes = advTimeLimitCheck.checked
+                                              ? (parseFloat(advTotalMinutesField.text) || 0.0)
+                                              : 0.0;
                         if (mode === "Constant") {
                             var bf = parseFloat(advBaseFlowField.text);
                             if (!isNaN(bf) && bf >= 0) card.flowField.text = bf.toFixed(2);
@@ -1181,15 +1378,18 @@ ApplicationWindow {
                     contentItem: Text {
                         text:  parent.text
                         font:  parent.font
+                        // When active, tab bg = pageBg; contrast against that.
+                        // When inactive, text sits on toolbarBg; contrast against that.
                         color: parent.checked
-                               ? (app.theme.toolbarBg    || "#1565c0")
-                               : (app.theme.toolbarText  || "#ffffff")
+                               ? app.contrastColor(app.theme.pageBg    || "#eef1f5")
+                               : app.contrastColor(app.theme.toolbarBg || "#546e7a")
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment:   Text.AlignVCenter
+                        Behavior on color { ColorAnimation { duration: 120 } }
                     }
                     background: Rectangle {
                         color: parent.checked
-                               ? (app.theme.pageBg    || "#e3f2fd")
+                               ? (app.theme.pageBg    || "#eef1f5")
                                : "transparent"
                         radius: 4
                         Behavior on color { ColorAnimation { duration: 120 } }
@@ -1203,14 +1403,15 @@ ApplicationWindow {
                         text:  parent.text
                         font:  parent.font
                         color: parent.checked
-                               ? (app.theme.toolbarBg   || "#1565c0")
-                               : (app.theme.toolbarText || "#ffffff")
+                               ? app.contrastColor(app.theme.pageBg    || "#eef1f5")
+                               : app.contrastColor(app.theme.toolbarBg || "#546e7a")
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment:   Text.AlignVCenter
+                        Behavior on color { ColorAnimation { duration: 120 } }
                     }
                     background: Rectangle {
                         color: parent.checked
-                               ? (app.theme.pageBg   || "#e3f2fd")
+                               ? (app.theme.pageBg   || "#eef1f5")
                                : "transparent"
                         radius: 4
                         Behavior on color { ColorAnimation { duration: 120 } }

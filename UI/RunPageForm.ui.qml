@@ -148,15 +148,15 @@ Item {
             Layout.fillWidth:  true
             Layout.fillHeight: true
 
-            RunPumpCardForm { id: r6; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r8; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r1; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r3; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r2; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r7; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r9; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r5; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            RunPumpCardForm { id: r4; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            RunPumpCardForm { id: r6; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r8; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r1; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r3; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r2; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r7; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r9; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r5; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
+            RunPumpCardForm { id: r4; visible: false; scale: scaleFactor; themeColors: themeColors; Layout.fillWidth: true }
         }
     }
 }

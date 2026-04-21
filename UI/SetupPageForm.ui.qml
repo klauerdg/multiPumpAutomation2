@@ -40,8 +40,28 @@ Item {
         pausedColor:        "#bf360c",
         stepColor:          "#2e7d32",
         primeActive:        "#ffccbc",
-        primeInactive:      "#eceff1"
+        primeInactive:      "#eceff1",
+        inputBg:            "#ffffff"
     })
+
+    property color _inputBg:   "#ffffff"
+    property color _inputText: "#000000"
+
+    function _luma(hex) {
+        if (!hex || hex.length < 7) return 0.5;
+        var r = parseInt(hex.slice(1,3),16)/255;
+        var g = parseInt(hex.slice(3,5),16)/255;
+        var b = parseInt(hex.slice(5,7),16)/255;
+        return 0.299*r + 0.587*g + 0.114*b;
+    }
+    function _contrast(hex) { return _luma(hex) > 0.5 ? "#000000" : "#ffffff"; }
+
+    function _applyTheme() {
+        _inputBg   = themeColors.inputBg || "#ffffff";
+        _inputText = _contrast(themeColors.inputBg || "#ffffff");
+    }
+    onThemeColorsChanged: _applyTheme()
+    Component.onCompleted: _applyTheme()
 
     // ── Page background ───────────────────────────────────────────────────────
     Rectangle {
@@ -82,7 +102,14 @@ Item {
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 96
                     font.pixelSize: 14
+                    color: root._inputText
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                    background: Rectangle {
+                        radius: 4
+                        color:  root._inputBg
+                        border.color: root.themeColors.cardBorder || "#b0bec5"
+                        border.width: 1
+                    }
                 }
 
                 Label {
