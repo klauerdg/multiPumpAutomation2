@@ -778,6 +778,69 @@ ApplicationWindow {
         }
     }
 
+    /* ===================== Confirm-Close Dialog ===================== */
+
+    // Intercept the OS close button — ask before quitting
+    onClosing: function(close) {
+        close.accepted = false;
+        confirmCloseDialog.open();
+    }
+
+    Dialog {
+        id: confirmCloseDialog
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: "Close Application?"
+        standardButtons: Dialog.NoButton
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"
+            radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+
+        contentItem: ColumnLayout {
+            anchors.margins: 16
+            spacing: 10
+            Label {
+                text: "Are you sure you want to close the application?\nThis will stop all running pumps."
+                font.pixelSize: 15
+                wrapMode: Text.WordWrap
+                color: app.contrastColor(app.theme.cardBg || "#ffffff")
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Cancel"
+                font.pixelSize: 14
+                onClicked: confirmCloseDialog.close()
+                background: Rectangle { radius: 4; color: app.theme.buttonBg || "#607d8b" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font
+                    color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+            }
+            Button {
+                text: "Close Application"
+                font.pixelSize: 14
+                onClicked: {
+                    if (typeof backend !== "undefined" && backend.stopAll)
+                        backend.stopAll();
+                    Qt.quit();
+                }
+                background: Rectangle { radius: 4; color: "#c62828" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font; color: "#ffffff"
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
+
     /* ===================== Calibration (per-pump µL/min per pps) ===================== */
 
     Settings {
@@ -1088,6 +1151,10 @@ ApplicationWindow {
 
             rc.infoLabel.text = summary;
 
+            // Show priming status so the operator knows before pressing Start
+            if (sc.priming)
+                rc.stepLabel.text = "\u27F3 Priming\u2014press Start to stop";
+
             automationPumpIds.push(pumpId);
             autoIds.push(pumpId);
             autoModes.push(mode === "" ? "Constant" : mode);
@@ -1367,6 +1434,28 @@ ApplicationWindow {
             anchors.fill: parent
             spacing: 0
 
+            // Gear / theme-settings button — left side so it's away from the OS close button
+            Button {
+                id: themeSettingsBtn
+                text: "⚙"
+                font.pixelSize: 18
+                Layout.preferredWidth:  42
+                Layout.preferredHeight: 42
+                flat: true
+                onClicked: themeDialog.open()
+                contentItem: Text {
+                    text:  parent.text
+                    font:  parent.font
+                    color: app.contrastColor(app.theme.toolbarBg || "#546e7a")
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment:   Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.pressed ? Qt.darker(app.theme.toolbarBg || "#1565c0", 1.3)
+                                          : "transparent"
+                }
+            }
+
             TabBar {
                 id: tabs
                 Layout.fillWidth: true
@@ -1419,27 +1508,6 @@ ApplicationWindow {
                 }
             }
 
-            // Gear / theme-settings button
-            Button {
-                id: themeSettingsBtn
-                text: "⚙"
-                font.pixelSize: 18
-                Layout.preferredWidth:  42
-                Layout.preferredHeight: 42
-                flat: true
-                onClicked: themeDialog.open()
-                contentItem: Text {
-                    text:  parent.text
-                    font:  parent.font
-                    color: app.theme.toolbarText || "#ffffff"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment:   Text.AlignVCenter
-                }
-                background: Rectangle {
-                    color: parent.pressed ? Qt.darker(app.theme.toolbarBg || "#1565c0", 1.3)
-                                          : "transparent"
-                }
-            }
         }
     }
 
@@ -1577,19 +1645,49 @@ ApplicationWindow {
                 }
             }
 
-            // --- Automation finished indicator (timed runs) ---
-            if (!automationFinished &&
-                automationTotalMinutes > 0 &&
-                elapsedSec >= automationTotalMinutes * 60) {
+            // --- Check whether all TIMED pumps have finished ----------------
+            // Each timed pump sets pumpStopped = true and calls backend.stop()
+            // individually when its countdown hits 0.  We only declare
+            // "automation complete" once every timed pump is stopped.
+            // Manual pumps (pumpEndSec === 0) keep running indefinitely.
+            if (!automationFinished && automationTotalMinutes > 0) {
+                var hasTimedPumps   = false;
+                var allTimedStopped = true;
+                var hasRunningManual = false;
 
-                automationFinished = true;
-                runTimer.stop();
+                for (var fi = 0; fi < runCards.length; ++fi) {
+                    var fc = runCards[fi];
+                    if (!fc || !fc.visible) continue;
 
-                if (typeof backend !== "undefined" && backend.stopAll)
-                    backend.stopAll();
+                    if (fc.pumpEndSec > 0) {
+                        hasTimedPumps = true;
+                        if (!fc.pumpStopped) allTimedStopped = false;
+                    } else {
+                        // Manual pump — still running unless explicitly stopped
+                        if (!fc.pumpStopped) hasRunningManual = true;
+                    }
+                }
 
-                run.statusLabel.text = "Automation complete.";
-                markAutomationCompleteOnRunCards();
+                if (hasTimedPumps && allTimedStopped) {
+                    automationFinished = true;
+
+                    // Mark only timed pump cards as complete
+                    for (var fj = 0; fj < runCards.length; ++fj) {
+                        var fd = runCards[fj];
+                        if (!fd || !fd.visible || fd.pumpEndSec === 0) continue;
+                        fd.opacity = 0.5;
+                        if (fd.infoLabel && fd.infoLabel.text.indexOf("Run complete") === -1)
+                            fd.infoLabel.text += " \u2022 Run complete";
+                    }
+
+                    if (hasRunningManual) {
+                        run.statusLabel.text = "Timed pumps complete \u2022 Manual pumps still running";
+                    } else {
+                        // No manual pumps — safe to stop the display timer
+                        runTimer.stop();
+                        run.statusLabel.text = "Automation complete.";
+                    }
+                }
             }
         }
     }
@@ -1708,12 +1806,44 @@ ApplicationWindow {
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
 
+            // ── 1. Resume any globally-paused cards (Pause All → Start) ──────
+            for (var ri = 0; ri < runCards.length; ++ri) {
+                var rc = runCards[ri];
+                if (!rc || !rc.visible || !rc.paused) continue;
+                // Accumulate how long this pump was paused
+                if (rc.pumpPausedAt >= 0)
+                    rc.pumpPausedAccum += elapsedSec - rc.pumpPausedAt;
+                rc.pumpPausedAt = -1;
+                rc.paused = false;
+            }
+
+            // ── 2. Stop any priming pumps and clear the priming UI ────────────
+            var setupCardsForPrime = [setup.pump1, setup.pump2, setup.pump3,
+                                      setup.pump4, setup.pump5, setup.pump6,
+                                      setup.pump7, setup.pump8, setup.pump9];
+            for (var si = 0; si < setupCardsForPrime.length; ++si) {
+                var sc = setupCardsForPrime[si];
+                if (!sc || !sc.priming) continue;
+                sc.priming = false;
+                if (typeof backend !== "undefined" && backend.stop)
+                    backend.stop(sc.pumpId);
+            }
+            // Clear priming labels on run cards
+            for (var pi = 0; pi < runCards.length; ++pi) {
+                var prc = runCards[pi];
+                if (prc && prc.stepLabel &&
+                    prc.stepLabel.text.indexOf("Priming") !== -1)
+                    prc.stepLabel.text = "";
+            }
+
+            // ── 3. Start pulsatile automation if needed ───────────────────────
             if (automationPending && typeof backend !== "undefined" && backend.startAutomation) {
                 automationFinished = false;
                 backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
                                         autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
             }
 
+            // ── 4. Set flow for constant / manual pumps ───────────────────────
             if (typeof backend !== "undefined" && backend.set_flow) {
                 for (var i = 0; i < runCards.length; ++i) {
                     var c = runCards[i];
@@ -1728,6 +1858,7 @@ ApplicationWindow {
                 }
             }
 
+            // ── 5. Start or resume the display timer ──────────────────────────
             if (!runTimer.running)
                 runTimer.start();
         });
