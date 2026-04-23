@@ -594,3 +594,20 @@ class QBackend(QObject):
                 return f.read()
         except Exception:
             return "{}"
+
+    # ---------- Run log file I/O ----------
+
+    @Slot(str, str)
+    def save_run_log(self, name: str, content: str):
+        """Save a plain-text run history log to the logs/ directory."""
+        import os, re
+        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        # Sanitise filename
+        safe = re.sub(r'[^\w\-. ]', '_', name).strip() or "run_log"
+        if not safe.lower().endswith(".txt"):
+            safe += ".txt"
+        path = os.path.join(log_dir, safe)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[backend] Run log saved: {path}")

@@ -16,6 +16,24 @@ ApplicationWindow {
     property var automationPumpIds: []
     // Pumps currently paused (Run page)
     property var pausedPumpIds: []
+
+    // ── Run History ───────────────────────────────────────────────────────────
+    property var runHistory: []   // array of plain strings, one per event
+
+    function logEvent(type, pumpsStr, details) {
+        var h = Math.floor(elapsedSec / 3600);
+        var m = Math.floor((elapsedSec % 3600) / 60);
+        var s = elapsedSec % 60;
+        var t = pad(h) + ":" + pad(m) + ":" + pad(s);
+        var line = t + "  |  " + type
+                 + (pumpsStr ? "  — Pump " + pumpsStr : "")
+                 + (details  ? "  (" + details + ")" : "");
+        runHistory.push(line);
+        runHistoryModel.append({ entry: line });
+    }
+
+    ListModel { id: runHistoryModel }
+
     // Run-tab timer seconds
     property int elapsedSec: 0
 
@@ -197,6 +215,148 @@ ApplicationWindow {
                 ids.push(pid);
         }
         return ids;
+    }
+
+    function _doStopAll() {
+        runTimer.stop();
+        elapsedSec = 0;
+        run.runTimeLabel.text = "00:00:00";
+        pausedPumpIds = [];
+        automationFinished = true;
+        automationTotalMinutes = 0;
+        automationPending = false;
+
+        if (typeof backend !== "undefined" && backend.stopAll)
+            backend.stopAll();
+
+        // Also stop any priming setup cards
+        var setupCards2 = [setup.pump1, setup.pump2, setup.pump3,
+                           setup.pump4, setup.pump5, setup.pump6,
+                           setup.pump7, setup.pump8, setup.pump9];
+        for (var si2 = 0; si2 < setupCards2.length; ++si2) {
+            if (setupCards2[si2] && setupCards2[si2].priming) {
+                setupCards2[si2].priming = false;
+                if (typeof backend !== "undefined" && backend.stop)
+                    backend.stop(setupCards2[si2].pumpId);
+            }
+        }
+
+        // Reset and hide all run cards
+        var rc2 = [run.r1, run.r2, run.r3, run.r4,
+                   run.r5, run.r6, run.r7, run.r8, run.r9];
+        for (var j2 = 0; j2 < rc2.length; ++j2) {
+            var cd = rc2[j2];
+            if (!cd) continue;
+            cd.visible         = false;
+            cd.paused          = false;
+            cd.selected        = false;
+            cd.pumpPausedAt    = -1;
+            cd.pumpPausedAccum = 0;
+            cd.pumpStopped     = false;
+            cd.pumpEndSec      = 0;
+            cd.pumpDurationSec = 0;
+            cd.pumpStepSec     = -1;
+            cd.rawFlow         = 0.0;
+            cd.opacity         = 1.0;
+            if (cd.timerLabel) cd.timerLabel.text = "";
+            if (cd.stepLabel)  cd.stepLabel.text  = "";
+            if (cd.infoLabel)  cd.infoLabel.text  = "";
+            if (cd.setFlowValue) cd.setFlowValue.text = "0.00";
+            if (cd.ppsLabel)   cd.ppsLabel.text   = "0";
+        }
+
+        logEvent("Stop All", "All", "run reset");
+        run.statusLabel.text = "All pumps stopped. Press Ready to Run to start a new run.";
+    }
+
+    function _resetPumpCard(c) {
+        c.pumpStopped     = false;
+        c.pumpPausedAccum = 0;
+        c.pumpPausedAt    = -1;
+        c.opacity         = 1.0;
+        if (c.pumpDurationSec > 0)
+            c.pumpEndSec = elapsedSec + c.pumpDurationSec;
+        if (c.timerLabel) c.timerLabel.text = "";
+    }
+
+    function _startCards(cards) {
+        var pulsatileAutoIds      = [];
+        var pulsatileAutoModes    = [];
+        var pulsatileAutoShapes   = [];
+        var pulsatileAutoMins     = [];
+        var pulsatileAutoPeriods  = [];
+        var pulsatileAutoDuties   = [];
+        var pulsatileAutoMinFlows = [];
+        var pulsatileAutoMaxFlows = [];
+
+        for (var i = 0; i < cards.length; ++i) {
+            var c = cards[i];
+            if (!c || !c.visible) continue;
+
+            // Resume if paused
+            if (c.paused) {
+                if (c.pumpPausedAt >= 0)
+                    c.pumpPausedAccum += elapsedSec - c.pumpPausedAt;
+                c.pumpPausedAt = -1;
+                c.paused = false;
+            }
+
+            // Reset if previously completed so timer restarts fresh
+            if (c.pumpStopped) _resetPumpCard(c);
+
+            // Stop any setup-page priming for this pump
+            var setupCards3 = [setup.pump1, setup.pump2, setup.pump3,
+                               setup.pump4, setup.pump5, setup.pump6,
+                               setup.pump7, setup.pump8, setup.pump9];
+            var pid = pumpIdFromRunCard(c);
+            for (var si3 = 0; si3 < setupCards3.length; ++si3) {
+                var sc3 = setupCards3[si3];
+                if (sc3 && sc3.priming && sc3.pumpId === pid) {
+                    sc3.priming = false;
+                    if (typeof backend !== "undefined" && backend.stop)
+                        backend.stop(sc3.pumpId);
+                }
+            }
+            if (c.stepLabel && c.stepLabel.text.indexOf("Priming") !== -1)
+                c.stepLabel.text = "";
+
+            // Collect pulsatile pumps for startAutomation call
+            var isPulsatile = c.infoLabel && c.infoLabel.text.indexOf("pulsatile") !== -1;
+            if (isPulsatile) {
+                // Find this pump in the global auto arrays
+                for (var ai = 0; ai < autoIds.length; ++ai) {
+                    if (autoIds[ai] === pid) {
+                        pulsatileAutoIds.push(autoIds[ai]);
+                        pulsatileAutoModes.push(autoModes[ai]);
+                        pulsatileAutoShapes.push(autoShapes[ai]);
+                        pulsatileAutoMins.push(autoMins[ai]);
+                        pulsatileAutoPeriods.push(autoPeriods[ai]);
+                        pulsatileAutoDuties.push(autoDuties[ai]);
+                        pulsatileAutoMinFlows.push(autoMinFlows[ai]);
+                        pulsatileAutoMaxFlows.push(autoMaxFlows[ai]);
+                        break;
+                    }
+                }
+            } else {
+                // Constant / manual: set flow directly
+                if (typeof backend !== "undefined" && backend.set_flow) {
+                    if (pid > 0 && c.rawFlow > 0)
+                        backend.set_flow(pid, c.rawFlow);
+                }
+            }
+        }
+
+        // Fire pulsatile automation if any pulsatile pumps in this set
+        if (pulsatileAutoIds.length > 0 &&
+            typeof backend !== "undefined" && backend.startAutomation) {
+            automationFinished = false;
+            backend.startAutomation(pulsatileAutoIds, pulsatileAutoModes,
+                                    pulsatileAutoShapes, pulsatileAutoMins,
+                                    pulsatileAutoPeriods, pulsatileAutoDuties,
+                                    pulsatileAutoMinFlows, pulsatileAutoMaxFlows);
+        }
+
+        if (!runTimer.running) runTimer.start();
     }
 
     /* ===================== Preset storage ===================== */
@@ -841,6 +1001,169 @@ ApplicationWindow {
         }
     }
 
+    Dialog {
+        id: stopAllDialog
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: "Stop All Pumps?"
+        standardButtons: Dialog.NoButton
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"; radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+
+        contentItem: ColumnLayout {
+            anchors.margins: 16; spacing: 10
+            Label {
+                text: "Are you sure you want to stop all pumps?\n" +
+                      "This will also reset the run page.\n" +
+                      "Setup page values are preserved."
+                wrapMode: Text.WordWrap; font.pixelSize: 15
+                color: app.contrastColor(app.theme.cardBg || "#ffffff")
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Cancel"; font.pixelSize: 14
+                onClicked: stopAllDialog.close()
+                background: Rectangle { radius: 4; color: app.theme.buttonBg || "#607d8b" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font
+                    color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+            }
+            Button {
+                text: "Stop All Pumps"; font.pixelSize: 14
+                background: Rectangle { radius: 4; color: "#c62828" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font; color: "#ffffff"
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: {
+                    stopAllDialog.close();
+                    app._doStopAll();
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: historyDialog
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: "Run History"
+        width: 680
+        height: 460
+        standardButtons: Dialog.NoButton
+        background: Rectangle {
+            color: app.theme.cardBg || "#ffffff"; radius: 8
+            border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+        }
+        palette.windowText: app.contrastColor(app.theme.cardBg || "#ffffff")
+
+        contentItem: ColumnLayout {
+            anchors.margins: 12; spacing: 8
+
+            // Scrollable log list
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 320
+                color: app.theme.inputBg || "#ffffff"
+                radius: 4
+                border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                clip: true
+
+                ListView {
+                    id: historyListView
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    model: runHistoryModel
+                    spacing: 2
+
+                    delegate: Text {
+                        width: historyListView.width
+                        text: model.entry
+                        font.pixelSize: 13
+                        font.family: "Monospace"
+                        color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                        wrapMode: Text.WordWrap
+                    }
+
+                    // Auto-scroll to bottom when new entries arrive
+                    onCountChanged: positionViewAtEnd()
+                }
+            }
+
+            // Save row
+            RowLayout {
+                spacing: 8
+                Label { text: "Save as:"; font.pixelSize: 14 }
+                TextField {
+                    id: historyFilenameField
+                    placeholderText: "run_log"
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 200
+                    color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                    background: Rectangle {
+                        radius: 4; color: app.theme.inputBg || "#ffffff"
+                        border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                    }
+                }
+                Label { text: ".txt"; font.pixelSize: 14 }
+                Button {
+                    text: "Save to File"; font.pixelSize: 14
+                    background: Rectangle { radius: 4; color: "#2e7d32" }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        if (typeof backend === "undefined" || !backend.save_run_log) return;
+                        var name = historyFilenameField.text.trim() || "run_log";
+                        var lines = [];
+                        for (var i = 0; i < runHistoryModel.count; i++)
+                            lines.push(runHistoryModel.get(i).entry);
+                        backend.save_run_log(name, lines.join("\n") + "\n");
+                        run.statusLabel.text = "History saved as " + name + ".txt";
+                    }
+                }
+                Item { Layout.fillWidth: true }
+                Button {
+                    text: "Clear History"; font.pixelSize: 14
+                    background: Rectangle { radius: 4; color: "#c62828" }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#fff"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        runHistory = [];
+                        runHistoryModel.clear();
+                    }
+                }
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Close"; font.pixelSize: 14
+                onClicked: historyDialog.close()
+                background: Rectangle { radius: 4; color: app.theme.buttonBg || "#607d8b" }
+                contentItem: Text {
+                    text: parent.text; font: parent.font
+                    color: app.contrastColor(app.theme.buttonBg || "#607d8b")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
+
     /* ===================== Calibration (per-pump µL/min per pps) ===================== */
 
     Settings {
@@ -1126,6 +1449,7 @@ ApplicationWindow {
                                + " \u00b5L/min at " + sc.advStepMinutes.toFixed(1) + " min";
                 }
                 rc.pumpEndSec  = sc.advTotalMinutes > 0 ? Math.round(sc.advTotalMinutes * 60) : 0;
+                rc.pumpDurationSec = rc.pumpEndSec;
                 rc.pumpStepSec = sc.advStepEnabled ? Math.round(sc.advStepMinutes * 60) : -1;
 
             } else if (mode === "Pulsatile") {
@@ -1136,6 +1460,7 @@ ApplicationWindow {
                 if (sc.advShape === "Square")
                     summary += " \u2022 " + sc.advDuty.toFixed(1) + "% duty";
                 rc.pumpEndSec  = sc.advTotalMinutes > 0 ? Math.round(sc.advTotalMinutes * 60) : 0;
+                rc.pumpDurationSec = rc.pumpEndSec;
                 rc.pumpStepSec = -1;
                 hasPulsatile   = true;
 
@@ -1143,6 +1468,7 @@ ApplicationWindow {
                 rc.setFlowValue.text = f.toFixed(2);
                 summary = "Manual mode \u2022 No time limit";
                 rc.pumpEndSec  = 0;
+                rc.pumpDurationSec = 0;
                 rc.pumpStepSec = -1;
             }
 
@@ -1605,6 +1931,8 @@ ApplicationWindow {
                 c.infoLabel.text = text + " \u2022 " + tag;
 
                 run.statusLabel.text = "Flow changed at " + stepMinutes.toFixed(1) + " min.";
+                logEvent("Flow change", pumpIdFromRunCard(c).toString(),
+                         "→ " + flowStr + " µL/min at " + stepMinutes.toFixed(1) + " min");
             }
             // --- per-pump countdown & step-change labels ---
             for (var pi = 0; pi < runCards.length; ++pi) {
@@ -1629,6 +1957,8 @@ ApplicationWindow {
                         var stopPid = pumpIdFromRunCard(pc);
                         if (stopPid > 0 && typeof backend !== "undefined" && backend.stop)
                             backend.stop(stopPid);
+                        logEvent("Timer complete", stopPid.toString(),
+                                 "stopped after " + (pc.pumpDurationSec / 60.0).toFixed(1) + " min");
                     }
                 }
 
@@ -1675,7 +2005,6 @@ ApplicationWindow {
                     for (var fj = 0; fj < runCards.length; ++fj) {
                         var fd = runCards[fj];
                         if (!fd || !fd.visible || fd.pumpEndSec === 0) continue;
-                        fd.opacity = 0.5;
                         if (fd.infoLabel && fd.infoLabel.text.indexOf("Run complete") === -1)
                             fd.infoLabel.text += " \u2022 Run complete";
                     }
@@ -1801,157 +2130,175 @@ ApplicationWindow {
             })(card));
         }
 
-        // Run buttons
+        // ── Run buttons ───────────────────────────────────────────────────────
+
+        // ── Start All ─────────────────────────────────────────────────────────
         run.startButton.clicked.connect(function () {
-            var runCards = [run.r1, run.r2, run.r3, run.r4,
-                            run.r5, run.r6, run.r7, run.r8, run.r9];
+            var allRunCards = [run.r1, run.r2, run.r3, run.r4,
+                               run.r5, run.r6, run.r7, run.r8, run.r9];
+            var visible = [];
+            for (var vi = 0; vi < allRunCards.length; ++vi)
+                if (allRunCards[vi] && allRunCards[vi].visible) visible.push(allRunCards[vi]);
 
-            // ── 1. Resume any globally-paused cards (Pause All → Start) ──────
-            for (var ri = 0; ri < runCards.length; ++ri) {
-                var rc = runCards[ri];
-                if (!rc || !rc.visible || !rc.paused) continue;
-                // Accumulate how long this pump was paused
-                if (rc.pumpPausedAt >= 0)
-                    rc.pumpPausedAccum += elapsedSec - rc.pumpPausedAt;
-                rc.pumpPausedAt = -1;
-                rc.paused = false;
-            }
+            automationFinished = false;
+            _startCards(visible);
 
-            // ── 2. Stop any priming pumps and clear the priming UI ────────────
-            var setupCardsForPrime = [setup.pump1, setup.pump2, setup.pump3,
-                                      setup.pump4, setup.pump5, setup.pump6,
-                                      setup.pump7, setup.pump8, setup.pump9];
-            for (var si = 0; si < setupCardsForPrime.length; ++si) {
-                var sc = setupCardsForPrime[si];
-                if (!sc || !sc.priming) continue;
-                sc.priming = false;
-                if (typeof backend !== "undefined" && backend.stop)
-                    backend.stop(sc.pumpId);
-            }
-            // Clear priming labels on run cards
-            for (var pi = 0; pi < runCards.length; ++pi) {
-                var prc = runCards[pi];
-                if (prc && prc.stepLabel &&
-                    prc.stepLabel.text.indexOf("Priming") !== -1)
-                    prc.stepLabel.text = "";
-            }
-
-            // ── 3. Start pulsatile automation if needed ───────────────────────
-            if (automationPending && typeof backend !== "undefined" && backend.startAutomation) {
-                automationFinished = false;
-                backend.startAutomation(autoIds, autoModes, autoShapes, autoMins,
-                                        autoPeriods, autoDuties, autoMinFlows, autoMaxFlows);
-            }
-
-            // ── 4. Set flow for constant / manual pumps ───────────────────────
-            if (typeof backend !== "undefined" && backend.set_flow) {
-                for (var i = 0; i < runCards.length; ++i) {
-                    var c = runCards[i];
-                    if (!c || !c.visible) continue;
-                    // Pulsatile flow is handled by startAutomation; skip set_flow
-                    if (c.infoLabel && c.infoLabel.text.indexOf("pulsatile") !== -1) continue;
-                    var pid = pumpIdFromRunCard(c);
-                    if (pid <= 0) continue;
-                    var f = c.rawFlow;
-                    if (f <= 0) continue;
-                    backend.set_flow(pid, f);
-                }
-            }
-
-            // ── 5. Start or resume the display timer ──────────────────────────
-            if (!runTimer.running)
-                runTimer.start();
+            var ids = [];
+            for (var ii = 0; ii < visible.length; ++ii)
+                ids.push(pumpIdFromRunCard(visible[ii]));
+            logEvent("Start All", ids.join(", "), "");
         });
 
+        // ── Start Selected ────────────────────────────────────────────────────
+        run.startSelectedButton.clicked.connect(function () {
+            var selIds = selectedRunPumpIds();
+            if (!selIds.length) return;
+
+            var allRunCards2 = [run.r1, run.r2, run.r3, run.r4,
+                                run.r5, run.r6, run.r7, run.r8, run.r9];
+            var selCards = [];
+            for (var vi2 = 0; vi2 < allRunCards2.length; ++vi2) {
+                var c2 = allRunCards2[vi2];
+                if (c2 && c2.visible && c2.selected) selCards.push(c2);
+            }
+
+            _startCards(selCards);
+            logEvent("Start Selected", selIds.join(", "), "");
+        });
+
+        // ── Pause All ─────────────────────────────────────────────────────────
         run.pauseButton.clicked.connect(function () {
-            runTimer.stop();
+            // Do NOT stop the universal timer — just freeze individual pump timers
             var allCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
+            var pausedIds = [];
             for (var i = 0; i < allCards.length; ++i) {
                 var ac = allCards[i];
-                if (!ac || !ac.visible) continue;
-                ac.paused = true;
-                ac.pumpPausedAt = elapsedSec;
+                if (!ac || !ac.visible || ac.pumpStopped) continue;
+                if (!ac.paused) {
+                    ac.paused = true;
+                    ac.pumpPausedAt = elapsedSec;
+                    pausedIds.push(pumpIdFromRunCard(ac));
+                }
             }
             if (typeof backend !== "undefined" && backend.pauseAll)
                 backend.pauseAll();
+            logEvent("Pause All", pausedIds.join(", "), "");
         });
 
+        // ── Stop All ──────────────────────────────────────────────────────────
         run.stopButton.clicked.connect(function () {
-            runTimer.stop();
-            elapsedSec = 0;
-            run.runTimeLabel.text = "00:00:00";
-            pausedPumpIds = [];
-            if (typeof backend !== "undefined" && backend.stopAll)
-                backend.stopAll();
-
-            var runCards = [run.r1, run.r2, run.r3, run.r4, run.r5, run.r6, run.r7, run.r8, run.r9];
-            for (var j = 0; j < runCards.length; ++j) {
-                var c2 = runCards[j];
-                if (!c2) continue;
-                c2.paused = false;
-                c2.pumpPausedAt = -1;
-                c2.pumpPausedAccum = 0;
-                if (c2.timerLabel) c2.timerLabel.text = "";
-                if (c2.stepLabel)  c2.stepLabel.text  = "";
-            }
-
-            automationFinished = true;
-            automationStepTriggered = false;
-            run.statusLabel.text = (automationTotalMinutes === 0.0)
-                    ? "Manual run stopped."
-                    : "Automation stopped.";
+            stopAllDialog.open();
         });
-        //ToBeFixed pause button should pause individual automation timers
-        // Pause selected
+        // ── Pause Selected ────────────────────────────────────────────────────
         run.pauseSelectedButton.clicked.connect(function () {
             var ids = selectedRunPumpIds();
-            console.log("Pause selected pumps:", ids);
-
+            if (!ids.length) return;
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
             for (var j = 0; j < runCards.length; ++j) {
                 var c3 = runCards[j];
-                if (!c3 || !c3.visible || !c3.selected)
-                    continue;
+                if (!c3 || !c3.visible || !c3.selected || c3.pumpStopped) continue;
                 var pid = pumpIdFromRunCard(c3);
-                if (ids.indexOf(pid) !== -1) {
+                if (ids.indexOf(pid) !== -1 && !c3.paused) {
                     c3.paused = true;
                     c3.pumpPausedAt = elapsedSec;
                     if (pausedPumpIds.indexOf(pid) === -1)
                         pausedPumpIds.push(pid);
                 }
             }
-
             if (typeof backend !== "undefined" && backend.pausePumps)
                 backend.pausePumps(ids);
+            logEvent("Pause Selected", ids.join(", "), "");
         });
 
-        // Resume selected
+        // ── Resume Selected ───────────────────────────────────────────────────
         run.resumeSelectedButton.clicked.connect(function () {
             var ids = selectedRunPumpIds();
-            console.log("Resume selected pumps:", ids);
+            if (!ids.length) return;
 
-            var runCards = [run.r1, run.r2, run.r3, run.r4,
-                            run.r5, run.r6, run.r7, run.r8, run.r9];
-            for (var j = 0; j < runCards.length; ++j) {
-                var c4 = runCards[j];
-                if (!c4 || !c4.visible || !c4.selected)
-                    continue;
-                var pid = pumpIdFromRunCard(c4);
-                if (ids.indexOf(pid) !== -1) {
-                    if (c4.pumpPausedAt >= 0)
-                        c4.pumpPausedAccum += elapsedSec - c4.pumpPausedAt;
-                    c4.pumpPausedAt = -1;
-                    c4.paused = false;
-                    var idx = pausedPumpIds.indexOf(pid);
-                    if (idx !== -1)
-                        pausedPumpIds.splice(idx, 1);
+            var runCards2 = [run.r1, run.r2, run.r3, run.r4,
+                             run.r5, run.r6, run.r7, run.r8, run.r9];
+
+            var resumedIds        = [];
+            var pulsatileReIds    = [];
+            var pulsatileReModes  = [];
+            var pulsatileReShapes = [];
+            var pulsatileReMins   = [];
+            var pulsatileRePer    = [];
+            var pulsatileReDuty   = [];
+            var pulsatileReMin    = [];
+            var pulsatileReMax    = [];
+
+            for (var j2 = 0; j2 < runCards2.length; ++j2) {
+                var c4 = runCards2[j2];
+                if (!c4 || !c4.visible || !c4.selected) continue;
+                var pid4 = pumpIdFromRunCard(c4);
+                if (ids.indexOf(pid4) === -1) continue;
+                if (c4.pumpStopped) continue;   // skip completed pumps
+                if (!c4.paused) continue;        // not paused, nothing to resume
+
+                var isPulsatile4 = c4.infoLabel && c4.infoLabel.text.indexOf("pulsatile") !== -1;
+
+                // Calculate remaining time BEFORE updating pumpPausedAccum
+                var remSec4 = c4.pumpEndSec > 0
+                    ? Math.max(0, c4.pumpEndSec - (c4.pumpPausedAt - c4.pumpPausedAccum))
+                    : 0;
+
+                // Accumulate pause duration
+                if (c4.pumpPausedAt >= 0)
+                    c4.pumpPausedAccum += elapsedSec - c4.pumpPausedAt;
+                c4.pumpPausedAt = -1;
+                c4.paused = false;
+
+                // Recalculate end time so countdown continues from remaining
+                if (c4.pumpEndSec > 0)
+                    c4.pumpEndSec = elapsedSec + remSec4;
+
+                resumedIds.push(pid4);
+
+                var idx4 = pausedPumpIds.indexOf(pid4);
+                if (idx4 !== -1) pausedPumpIds.splice(idx4, 1);
+
+                // Pulsatile pumps need startAutomation (not just set_flow)
+                if (isPulsatile4 && remSec4 > 0) {
+                    for (var ai4 = 0; ai4 < autoIds.length; ++ai4) {
+                        if (autoIds[ai4] === pid4) {
+                            pulsatileReIds.push(autoIds[ai4]);
+                            pulsatileReModes.push(autoModes[ai4]);
+                            pulsatileReShapes.push(autoShapes[ai4]);
+                            pulsatileReMins.push(remSec4 / 60.0);  // remaining minutes
+                            pulsatileRePer.push(autoPeriods[ai4]);
+                            pulsatileReDuty.push(autoDuties[ai4]);
+                            pulsatileReMin.push(autoMinFlows[ai4]);
+                            pulsatileReMax.push(autoMaxFlows[ai4]);
+                            break;
+                        }
+                    }
+                } else if (!isPulsatile4) {
+                    if (typeof backend !== "undefined" && backend.set_flow && c4.rawFlow > 0)
+                        backend.set_flow(pid4, c4.rawFlow);
                 }
             }
 
-            if (typeof backend !== "undefined" && backend.resumePumps)
-                backend.resumePumps(ids);
+            // Restart pulsatile automation with remaining time
+            if (pulsatileReIds.length > 0 &&
+                typeof backend !== "undefined" && backend.startAutomation) {
+                backend.startAutomation(pulsatileReIds, pulsatileReModes,
+                                        pulsatileReShapes, pulsatileReMins,
+                                        pulsatileRePer, pulsatileReDuty,
+                                        pulsatileReMin, pulsatileReMax);
+            }
+
+            if (resumedIds.length > 0) {
+                if (!runTimer.running) runTimer.start();
+                logEvent("Resume Selected", resumedIds.join(", "), "");
+            }
+        });
+
+        // ── History ───────────────────────────────────────────────────────────
+        run.historyButton.clicked.connect(function () {
+            historyDialog.open();
         });
 
     }

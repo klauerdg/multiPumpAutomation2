@@ -23,6 +23,7 @@ Item {
     property bool pumpStopped:  false
     property int  pumpPausedAt:   -1
     property int  pumpPausedAccum: 0
+    property int  pumpDurationSec: 0
 
     property var themeColors: ({
         cardBg:             "#ffffff",

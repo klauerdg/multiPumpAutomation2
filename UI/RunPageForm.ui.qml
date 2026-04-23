@@ -14,6 +14,8 @@ Item {
     property alias stopButton:         stopButton
     property alias pauseSelectedButton:  pauseSelectedButton
     property alias resumeSelectedButton: resumeSelectedButton
+    property alias startSelectedButton: startSelectedButton
+    property alias historyButton:       historyButton
     property alias statusLabel:        statusLabel
 
     property alias r1: r1
@@ -102,40 +104,57 @@ Item {
 
             FlashButton {
                 id: startButton
-                text: "Start"
+                text: "Start All"
                 font.pixelSize: 14 * scaleFactor
-                Layout.preferredWidth: 96 * scaleFactor
+                Layout.preferredWidth: 90 * scaleFactor
                 themeColors: root.themeColors
             }
+            FlashButton {
+                id: startSelectedButton
+                text: "Start Selected"
+                font.pixelSize: 13 * scaleFactor
+                Layout.preferredWidth: 126 * scaleFactor
+                themeColors: root.themeColors
+            }
+
+            Item { Layout.preferredWidth: 14 * scaleFactor }
+
             FlashButton {
                 id: pauseButton
                 text: "Pause All"
                 font.pixelSize: 14 * scaleFactor
-                Layout.preferredWidth: 108 * scaleFactor
+                Layout.preferredWidth: 100 * scaleFactor
                 themeColors: root.themeColors
             }
-            FlashButton {
-                id: stopButton
-                text: "Stop All"
-                font.pixelSize: 14 * scaleFactor
-                Layout.preferredWidth: 108 * scaleFactor
-                themeColors: root.themeColors
-            }
-
-            Item { Layout.preferredWidth: 19 * scaleFactor }
-
             FlashButton {
                 id: pauseSelectedButton
                 text: "Pause Selected"
                 font.pixelSize: 13 * scaleFactor
-                Layout.preferredWidth: 132 * scaleFactor
+                Layout.preferredWidth: 126 * scaleFactor
                 themeColors: root.themeColors
             }
             FlashButton {
                 id: resumeSelectedButton
                 text: "Resume Selected"
                 font.pixelSize: 13 * scaleFactor
-                Layout.preferredWidth: 144 * scaleFactor
+                Layout.preferredWidth: 138 * scaleFactor
+                themeColors: root.themeColors
+            }
+
+            Item { Layout.fillWidth: true }
+
+            FlashButton {
+                id: stopButton
+                text: "Stop All"
+                font.pixelSize: 14 * scaleFactor
+                Layout.preferredWidth: 100 * scaleFactor
+                themeColors: root.themeColors
+            }
+            FlashButton {
+                id: historyButton
+                text: "History"
+                font.pixelSize: 14 * scaleFactor
+                Layout.preferredWidth: 88 * scaleFactor
                 themeColors: root.themeColors
             }
         }
