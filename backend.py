@@ -331,14 +331,26 @@ class QBackend(QObject):
     @Slot("QVariant")
     @Slot(int)
     @Slot(float)
-    def prime(self, pump):
-        """Prime ON: UI toggles, Arduino runs until stop()."""
+    @Slot(int, float)
+    @Slot(float, float)
+    def prime(self, pump, pps=0.0):
+        """Prime ON.
+
+        If *pps* > 0 the pump is driven at that calibrated step rate via the
+        normal set_flow command so that the per-pump calibration factor is
+        respected.  If *pps* is omitted or 0 the hardware full-speed prime
+        command is used as a fallback.
+        """
         p = int(pump)
         link, local = self._route_pump(p)
         if not link:
             return
-        print(f"[QBackend] prime(global={p} -> local={local})")
-        link.prime(local)
+        if pps > 0:
+            print(f"[QBackend] prime(global={p} -> local={local}, pps={pps})")
+            link.set_flow(local, float(pps))
+        else:
+            print(f"[QBackend] prime(global={p} -> local={local}, full-speed)")
+            link.prime(local)
 
     @Slot("QVariant")
     @Slot(int)

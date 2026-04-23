@@ -2130,7 +2130,7 @@ ApplicationWindow {
         if (setup.calibrationButton)
             setup.calibrationButton.clicked.connect(app.openCalibrationDialog);
 
-        // Prime buttons: toggle full-speed priming
+        // Prime buttons: toggle priming at calibration-scaled speed
         var setupCards = [setup.pump1, setup.pump2, setup.pump3,
                           setup.pump4, setup.pump5, setup.pump6,
                           setup.pump7, setup.pump8, setup.pump9];
@@ -2155,8 +2155,17 @@ ApplicationWindow {
                         return;
 
                     if (c.priming) {
-                        if (backend.prime)
-                            backend.prime(pid);
+                        if (backend.prime) {
+                            // Convert the card's flow rate to pps using the
+                            // pump-specific calibration factor so priming speed
+                            // respects the same multiplier as normal operation.
+                            // Falls back to hardware full-speed prime when no
+                            // flow value has been entered (primePps = 0).
+                            var primeFlow = parseFloat(c.flowField.text) || 0.0;
+                            var primeCal  = calibrationForPumpId(pid);
+                            var primePps  = primeFlow > 0 ? primeFlow * primeCal : 0.0;
+                            backend.prime(pid, primePps);
+                        }
                     } else {
                         if (backend.stop)
                             backend.stop(pid);
