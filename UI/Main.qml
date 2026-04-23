@@ -301,9 +301,11 @@ ApplicationWindow {
             // Skip completed pumps — they stay grey/locked until Stop All + Ready to Run
             if (c.pumpStopped) continue;
 
-            // Resume if paused
+            // If the pump was already running and got paused, accumulate pause time.
+            // If it was paused before being started (e.g. Pause All hit an unstarted pump),
+            // just clear the paused flag — no accum to add since it never ran.
             if (c.paused) {
-                if (c.pumpPausedAt >= 0)
+                if (c.pumpStarted && c.pumpPausedAt >= 0)
                     c.pumpPausedAccum += elapsedSec - c.pumpPausedAt;
                 c.pumpPausedAt = -1;
                 c.paused = false;
@@ -2221,7 +2223,7 @@ ApplicationWindow {
             var pausedIds = [];
             for (var i = 0; i < allCards.length; ++i) {
                 var ac = allCards[i];
-                if (!ac || !ac.visible || ac.pumpStopped) continue;
+                if (!ac || !ac.visible || !ac.pumpStarted || ac.pumpStopped) continue;
                 if (!ac.paused) {
                     ac.paused = true;
                     ac.pumpPausedAt = elapsedSec;
@@ -2245,7 +2247,7 @@ ApplicationWindow {
                             run.r5, run.r6, run.r7, run.r8, run.r9];
             for (var j = 0; j < runCards.length; ++j) {
                 var c3 = runCards[j];
-                if (!c3 || !c3.visible || !c3.selected || c3.pumpStopped) continue;
+                if (!c3 || !c3.visible || !c3.selected || !c3.pumpStarted || c3.pumpStopped) continue;
                 var pid = pumpIdFromRunCard(c3);
                 if (ids.indexOf(pid) !== -1 && !c3.paused) {
                     c3.paused = true;
@@ -2287,10 +2289,10 @@ ApplicationWindow {
 
                 var isPulsatile4 = c4.infoLabel && c4.infoLabel.text.indexOf("pulsatile") !== -1;
 
-                // Calculate remaining time BEFORE updating pumpPausedAccum
-                var remSec4 = c4.pumpEndSec > 0
-                    ? Math.max(0, c4.pumpEndSec - (c4.pumpPausedAt - c4.pumpPausedAccum))
-                    : 0;
+                // Calculate remaining time BEFORE updating pumpPausedAccum.
+                // pcEff at pause = (pumpPausedAt - pumpStartedAt) - pumpPausedAccum
+                var pcEff4   = Math.max(0, (c4.pumpPausedAt - c4.pumpStartedAt) - c4.pumpPausedAccum);
+                var remSec4  = c4.pumpEndSec > 0 ? Math.max(0, c4.pumpEndSec - pcEff4) : 0;
 
                 // Accumulate pause duration — pumpPausedAccum already handles
                 // the offset so pumpEndSec does NOT need to be recalculated.

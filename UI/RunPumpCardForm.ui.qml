@@ -86,12 +86,24 @@ Item {
         anchors.margins: 6
         spacing: 2
 
-        Label {
-            id:             titleLabel
-            text:           "Pump"
-            font.bold:      true
-            font.pixelSize: 14
-            color:          root._cardText
+        RowLayout {
+            spacing: 6
+            Layout.fillWidth: true
+
+            Label {
+                id:             titleLabel
+                text:           "Pump"
+                font.bold:      true
+                font.pixelSize: 14
+                color:          root._cardText
+            }
+            Label {
+                text:           "\u25cf Started"
+                font.pixelSize: 12
+                color:          "#2e7d32"
+                visible:        root.pumpStarted && !root.pumpStopped
+            }
+            Item { Layout.fillWidth: true }
         }
 
         RowLayout {
