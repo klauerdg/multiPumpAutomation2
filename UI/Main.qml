@@ -345,16 +345,19 @@ ApplicationWindow {
                         pulsatileAutoMins.push(autoMins[ai]);
                         pulsatileAutoPeriods.push(autoPeriods[ai]);
                         pulsatileAutoDuties.push(autoDuties[ai]);
-                        pulsatileAutoMinFlows.push(autoMinFlows[ai]);
-                        pulsatileAutoMaxFlows.push(autoMaxFlows[ai]);
+                        var pulCal = calibrationForPumpId(autoIds[ai]);
+                        pulsatileAutoMinFlows.push(autoMinFlows[ai] * pulCal);
+                        pulsatileAutoMaxFlows.push(autoMaxFlows[ai] * pulCal);
                         break;
                     }
                 }
             } else {
-                // Constant / manual: set flow directly
+                // Constant / manual: convert µL/min → pps via calibration multiplier
                 if (typeof backend !== "undefined" && backend.set_flow) {
-                    if (pid > 0 && c.rawFlow > 0)
-                        backend.set_flow(pid, c.rawFlow);
+                    if (pid > 0 && c.rawFlow > 0) {
+                        var calFactor = calibrationForPumpId(pid);
+                        backend.set_flow(pid, c.rawFlow * calFactor);
+                    }
                 }
             }
         }
@@ -1232,8 +1235,7 @@ ApplicationWindow {
                 continue;
 
             var factor = calibrationForPumpId(pid);
-            var pps = factor > 0 ? (flowVal / factor) : 0.0;
-            c.ppsLabel.text = pps.toFixed(0);
+            c.ppsLabel.text = (flowVal * factor).toFixed(0);
         }
     }
 
@@ -1241,7 +1243,7 @@ ApplicationWindow {
         id: calibrationDialog
         modal: true
         closePolicy: Popup.CloseOnEscape
-        title: "Per-pump Calibration (µL/min per pps)"
+        title: "Per-pump Calibration (pps per µL/min)"
         standardButtons: Dialog.Ok | Dialog.Cancel
         background: Rectangle {
             color: app.theme.cardBg || "#ffffff"
@@ -1259,8 +1261,8 @@ ApplicationWindow {
             spacing: 8
 
             Label {
-                text: "Enter calibration factors for each pump (µL/min per 1 pps).\n" +
-                      "Existing values are kept if you leave a field blank."
+                text: "Enter calibration factors (pps per µL/min) for each pump.\n" +
+                      "pps = flow × factor.  Existing values kept if field left blank."
                 wrapMode: Text.WordWrap
             }
 
@@ -1451,7 +1453,7 @@ ApplicationWindow {
             rc.objectName = "pumpId:" + pumpId;
 
             var factor = calibrationForPumpId(pumpId);
-            rc.ppsLabel.text = (factor > 0 ? (f / factor) : 0.0).toFixed(0);
+            rc.ppsLabel.text = (f * factor).toFixed(0);
 
             var mode    = sc.advMode;
             var summary = "";
@@ -1931,21 +1933,21 @@ ApplicationWindow {
 
                 var flowVal = parseFloat(flowStr);
                 if (!isNaN(flowVal)) {
+                    var stepPid    = pumpIdFromRunCard(c);
+                    var stepFactor = calibrationForPumpId(stepPid);
+
                     if (c.setFlowValue)
                         c.setFlowValue.text = flowVal.toFixed(2);
 
-                    if (c.ppsLabel) {
-                        var pid2_forPps = pumpIdFromRunCard(c);
-                        var factor2 = calibrationForPumpId(pid2_forPps);
-                        var pps2 = factor2 > 0 ? (flowVal / factor2) : 0.0;
-                        c.ppsLabel.text = pps2.toFixed(0);
-                    }
+                    if (c.ppsLabel)
+                        c.ppsLabel.text = (flowVal * stepFactor).toFixed(0);
 
-                    if (typeof backend !== "undefined" && backend.set_flow) {
-                        var pid2 = pumpIdFromRunCard(c);
-                        if (pid2 > 0)
-                            backend.set_flow(pid2, flowVal);
-                    }
+                    // Update rawFlow so any subsequent pause/resume restores the
+                    // stepped rate rather than reverting to the original flow.
+                    c.rawFlow = flowVal;
+
+                    if (typeof backend !== "undefined" && backend.set_flow && stepPid > 0)
+                        backend.set_flow(stepPid, flowVal * stepFactor);
                 }
 
                 var tag = "Flow changed to " + flowStr + " at " + stepMinutes.toFixed(1) + " min";
@@ -2321,14 +2323,17 @@ ApplicationWindow {
                             pulsatileReMins.push(remSec4 / 60.0);  // remaining minutes
                             pulsatileRePer.push(autoPeriods[ai4]);
                             pulsatileReDuty.push(autoDuties[ai4]);
-                            pulsatileReMin.push(autoMinFlows[ai4]);
-                            pulsatileReMax.push(autoMaxFlows[ai4]);
+                            var reCal = calibrationForPumpId(autoIds[ai4]);
+                            pulsatileReMin.push(autoMinFlows[ai4] * reCal);
+                            pulsatileReMax.push(autoMaxFlows[ai4] * reCal);
                             break;
                         }
                     }
                 } else if (!isPulsatile4) {
-                    if (typeof backend !== "undefined" && backend.set_flow && c4.rawFlow > 0)
-                        backend.set_flow(pid4, c4.rawFlow);
+                    if (typeof backend !== "undefined" && backend.set_flow && c4.rawFlow > 0) {
+                        var resCal = calibrationForPumpId(pid4);
+                        backend.set_flow(pid4, c4.rawFlow * resCal);
+                    }
                 }
             }
 
