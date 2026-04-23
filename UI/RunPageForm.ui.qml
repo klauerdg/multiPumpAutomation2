@@ -30,6 +30,10 @@ Item {
 
     property real scaleFactor: (height < 520 ? 0.85 : 1.0)
 
+    // Run-state flags (driven from Main.qml)
+    property bool runStarted:      false   // true once any pump has been started
+    property bool allPumpsStarted: false   // true once every visible pump is started
+
     // Auto-compute page text colour from page background luminance
     property color _pageText: "#000000"
     property color _timerClr: "#1565c0"
@@ -102,12 +106,23 @@ Item {
             spacing: 8 * scaleFactor
             Layout.alignment: Qt.AlignHCenter
 
-            FlashButton {
+            Button {
                 id: startButton
-                text: "Start All"
+                text: root.runStarted ? "Stop All" : "Start All"
                 font.pixelSize: 14 * scaleFactor
                 Layout.preferredWidth: 90 * scaleFactor
-                themeColors: root.themeColors
+                background: Rectangle {
+                    radius: 4
+                    color: root.runStarted ? "#c62828" : "#2e7d32"
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                }
+                contentItem: Text {
+                    text:                startButton.text
+                    font:                startButton.font
+                    color:               "#ffffff"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment:   Text.AlignVCenter
+                }
             }
             FlashButton {
                 id: startSelectedButton
@@ -115,6 +130,8 @@ Item {
                 font.pixelSize: 13 * scaleFactor
                 Layout.preferredWidth: 126 * scaleFactor
                 themeColors: root.themeColors
+                enabled: !root.allPumpsStarted
+                opacity: root.allPumpsStarted ? 0.4 : 1.0
             }
 
             Item { Layout.preferredWidth: 14 * scaleFactor }

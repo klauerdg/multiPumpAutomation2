@@ -219,8 +219,11 @@ ApplicationWindow {
 
     function _doStopAll() {
         runTimer.stop();
+        logEvent("Stop All", "All", "run reset");   // log BEFORE resetting elapsedSec
         elapsedSec = 0;
         run.runTimeLabel.text = "00:00:00";
+        run.runStarted      = false;
+        run.allPumpsStarted = false;
         pausedPumpIds = [];
         automationFinished = true;
         automationTotalMinutes = 0;
@@ -250,6 +253,7 @@ ApplicationWindow {
             cd.visible         = false;
             cd.paused          = false;
             cd.selected        = false;
+            cd.pumpStarted     = false;
             cd.pumpPausedAt    = -1;
             cd.pumpPausedAccum = 0;
             cd.pumpStopped     = false;
@@ -265,7 +269,6 @@ ApplicationWindow {
             if (cd.ppsLabel)   cd.ppsLabel.text   = "0";
         }
 
-        logEvent("Stop All", "All", "run reset");
         run.statusLabel.text = "All pumps stopped. Press Ready to Run to start a new run.";
     }
 
@@ -293,6 +296,9 @@ ApplicationWindow {
             var c = cards[i];
             if (!c || !c.visible) continue;
 
+            // Skip completed pumps — they stay grey/locked until Stop All + Ready to Run
+            if (c.pumpStopped) continue;
+
             // Resume if paused
             if (c.paused) {
                 if (c.pumpPausedAt >= 0)
@@ -301,8 +307,8 @@ ApplicationWindow {
                 c.paused = false;
             }
 
-            // Reset if previously completed so timer restarts fresh
-            if (c.pumpStopped) _resetPumpCard(c);
+            // Mark this pump as started
+            c.pumpStarted = true;
 
             // Stop any setup-page priming for this pump
             var setupCards3 = [setup.pump1, setup.pump2, setup.pump3,
@@ -1069,37 +1075,7 @@ ApplicationWindow {
         contentItem: ColumnLayout {
             anchors.margins: 12; spacing: 8
 
-            // Scrollable log list
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 320
-                color: app.theme.inputBg || "#ffffff"
-                radius: 4
-                border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
-                clip: true
-
-                ListView {
-                    id: historyListView
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    model: runHistoryModel
-                    spacing: 2
-
-                    delegate: Text {
-                        width: historyListView.width
-                        text: model.entry
-                        font.pixelSize: 13
-                        font.family: "Monospace"
-                        color: app.contrastColor(app.theme.inputBg || "#ffffff")
-                        wrapMode: Text.WordWrap
-                    }
-
-                    // Auto-scroll to bottom when new entries arrive
-                    onCountChanged: positionViewAtEnd()
-                }
-            }
-
-            // Save row
+            // Save row — at TOP so it remains visible when the virtual keyboard is open
             RowLayout {
                 spacing: 8
                 Label { text: "Save as:"; font.pixelSize: 14 }
@@ -1144,6 +1120,37 @@ ApplicationWindow {
                         runHistory = [];
                         runHistoryModel.clear();
                     }
+                }
+            }
+
+            // Scrollable log list
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 260
+                color: app.theme.inputBg || "#ffffff"
+                radius: 4
+                border.color: app.theme.cardBorder || "#b0bec5"; border.width: 1
+                clip: true
+
+                ListView {
+                    id: historyListView
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    model: runHistoryModel
+                    spacing: 2
+
+                    delegate: Text {
+                        width: historyListView.width
+                        text: model.entry
+                        font.pixelSize: 13
+                        font.family: "Monospace"
+                        color: app.contrastColor(app.theme.inputBg || "#ffffff")
+                        wrapMode: Text.WordWrap
+                    }
+
+                    // Auto-scroll to bottom when new entries arrive
+                    onCountChanged: positionViewAtEnd()
                 }
             }
         }
@@ -1882,7 +1889,8 @@ ApplicationWindow {
                 if (!c || !c.visible || !c.infoLabel)
                     continue;
 
-                if (c.paused) continue;   // don't fire step changes while paused
+                if (!c.pumpStarted) continue; // not yet started — skip
+                if (c.paused) continue;        // don't fire step changes while paused
 
                 var text = c.infoLabel.text;
 
@@ -1938,6 +1946,7 @@ ApplicationWindow {
             for (var pi = 0; pi < runCards.length; ++pi) {
                 var pc = runCards[pi];
                 if (!pc || !pc.visible) continue;
+                if (!pc.pumpStarted) continue;  // not started yet — skip countdown
 
                 // Effective elapsed: freeze at the moment this pump was paused
                 var pcEff = pc.paused
@@ -1953,6 +1962,7 @@ ApplicationWindow {
                         pc.timerLabel.text = remM + ":" + pad(remS) + " remaining";
                     } else if (!pc.pumpStopped && !pc.paused) {
                         pc.pumpStopped = true;
+                        pc.opacity = 0.5;       // grey out — locked until Stop All
                         pc.timerLabel.text = "Done";
                         var stopPid = pumpIdFromRunCard(pc);
                         if (stopPid > 0 && typeof backend !== "undefined" && backend.stop)
@@ -2132,8 +2142,14 @@ ApplicationWindow {
 
         // ── Run buttons ───────────────────────────────────────────────────────
 
-        // ── Start All ─────────────────────────────────────────────────────────
+        // ── Start All / Stop All (toggling button) ────────────────────────────
         run.startButton.clicked.connect(function () {
+            // When the run is already active the button shows "Stop All"
+            if (run.runStarted) {
+                stopAllDialog.open();
+                return;
+            }
+
             var allRunCards = [run.r1, run.r2, run.r3, run.r4,
                                run.r5, run.r6, run.r7, run.r8, run.r9];
             var visible = [];
@@ -2142,6 +2158,9 @@ ApplicationWindow {
 
             automationFinished = false;
             _startCards(visible);
+
+            run.runStarted      = true;
+            run.allPumpsStarted = true;  // Start All touches every visible pump
 
             var ids = [];
             for (var ii = 0; ii < visible.length; ++ii)
@@ -2163,6 +2182,22 @@ ApplicationWindow {
             }
 
             _startCards(selCards);
+
+            // Deselect the cards that were just started
+            for (var di = 0; di < selCards.length; ++di)
+                selCards[di].selected = false;
+
+            // Switch the Start All button to Stop All mode
+            run.runStarted = true;
+
+            // Grey out Start Selected once every visible pump has been started
+            var allStartedNow = true;
+            for (var ci = 0; ci < allRunCards2.length; ++ci) {
+                var ck = allRunCards2[ci];
+                if (ck && ck.visible && !ck.pumpStarted) { allStartedNow = false; break; }
+            }
+            run.allPumpsStarted = allStartedNow;
+
             logEvent("Start Selected", selIds.join(", "), "");
         });
 
@@ -2245,15 +2280,12 @@ ApplicationWindow {
                     ? Math.max(0, c4.pumpEndSec - (c4.pumpPausedAt - c4.pumpPausedAccum))
                     : 0;
 
-                // Accumulate pause duration
+                // Accumulate pause duration — pumpPausedAccum already handles
+                // the offset so pumpEndSec does NOT need to be recalculated.
                 if (c4.pumpPausedAt >= 0)
                     c4.pumpPausedAccum += elapsedSec - c4.pumpPausedAt;
                 c4.pumpPausedAt = -1;
                 c4.paused = false;
-
-                // Recalculate end time so countdown continues from remaining
-                if (c4.pumpEndSec > 0)
-                    c4.pumpEndSec = elapsedSec + remSec4;
 
                 resumedIds.push(pid4);
 
