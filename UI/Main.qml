@@ -2156,12 +2156,9 @@ ApplicationWindow {
 
                     if (c.priming) {
                         if (backend.prime) {
-                            // Convert the card's flow rate to pps using the
-                            // pump-specific calibration factor so priming speed
-                            // respects the same multiplier as normal operation.
-                            // Falls back to hardware full-speed prime when no
-                            // flow value has been entered (primePps = 0).
-                            var primeFlow = parseFloat(c.flowField.text) || 0.0;
+                            // Use the shared Prime flow field (toolbar, default 15 µL/min)
+                            // multiplied by this pump's calibration factor.
+                            var primeFlow = parseFloat(setup.primeFlowField.text) || 0.0;
                             var primeCal  = calibrationForPumpId(pid);
                             var primePps  = primeFlow > 0 ? primeFlow * primeCal : 0.0;
                             backend.prime(pid, primePps);

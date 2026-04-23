@@ -9,6 +9,7 @@ Item {
 
     // ── Aliases ──────────────────────────────────────────────────────────────
     property alias groupFlowField:    groupFlowField
+    property alias primeFlowField:    primeFlowField
     property alias applyGroupButton:  applyGroupButton
     property alias advancedButton:    advancedButton
     property alias loadPresetButton:  loadPresetButton
@@ -101,6 +102,37 @@ Item {
                     text:  "0.00"
                     validator: DoubleValidator { bottom: 0; decimals: 2 }
                     Layout.preferredWidth: 96
+                    font.pixelSize: 14
+                    color: root._inputText
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
+                    background: Rectangle {
+                        radius: 4
+                        color:  root._inputBg
+                        border.color: root.themeColors.cardBorder || "#b0bec5"
+                        border.width: 1
+                    }
+                }
+
+                Label {
+                    text:  "µL/min"
+                    font.pixelSize: 14
+                    color: themeColors.toolbarText || "#ffffff"
+                    opacity: 0.85
+                }
+
+                Item { Layout.preferredWidth: 12 }
+
+                Label {
+                    text:  "Prime"
+                    font.pixelSize: 16
+                    color: themeColors.toolbarText || "#ffffff"
+                }
+
+                TextField {
+                    id: primeFlowField
+                    text:  "15.00"
+                    validator: DoubleValidator { bottom: 0; decimals: 2 }
+                    Layout.preferredWidth: 80
                     font.pixelSize: 14
                     color: root._inputText
                     inputMethodHints: Qt.ImhFormattedNumbersOnly | Qt.ImhPreferNumbers
