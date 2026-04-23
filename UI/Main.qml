@@ -1922,8 +1922,10 @@ ApplicationWindow {
                 if (isNaN(stepMinutes) || stepMinutes <= 0)
                     continue;
 
-                // Compare against per-pump elapsed (offset by when this pump started)
-                var pumpElapsed = elapsedSec - (c.pumpStartedAt || 0);
+                // Compare against per-pump effective elapsed — must subtract both the
+                // start offset AND any accumulated pause time so the step fires at
+                // the correct amount of actual pumping time, not wall-clock time.
+                var pumpElapsed = (elapsedSec - (c.pumpStartedAt || 0)) - c.pumpPausedAccum;
                 if (pumpElapsed < stepMinutes * 60)
                     continue;
 
@@ -2098,6 +2100,9 @@ ApplicationWindow {
             automationFinished = false;
             elapsedSec = 0;
             run.runTimeLabel.text = "00:00:00";
+            run.statusLabel.text  = "";
+            run.runStarted        = false;
+            run.allPumpsStarted   = false;
             tabs.currentIndex = 1;   // go to Run tab
         });
         setup.advancedButton.clicked.connect(function () {
