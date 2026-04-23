@@ -1346,46 +1346,50 @@ ApplicationWindow {
         }
 
         onOpened: {
-            // populate fields with current values
+            // Load fields in display order (matches SetupPageForm grid).
+            // Each cal field maps to the pumpId shown in that grid position:
+            //   display Pump 1 → pumpId 9 → index 8
+            //   display Pump 2 → pumpId 8 → index 7
+            //   display Pump 3 → pumpId 7 → index 6
+            //   display Pump 4 → pumpId 2 → index 1
+            //   display Pump 5 → pumpId 3 → index 2
+            //   display Pump 6 → pumpId 1 → index 0
+            //   display Pump 7 → pumpId 6 → index 5
+            //   display Pump 8 → pumpId 5 → index 4
+            //   display Pump 9 → pumpId 4 → index 3
             var arr = pumpCalFactors;
-            cal1.text = "" + arr[0];
-            cal2.text = "" + arr[1];
-            cal3.text = "" + arr[2];
-            cal4.text = "" + arr[3];
-            cal5.text = "" + arr[4];
-            cal6.text = "" + arr[5];
-            cal7.text = "" + arr[6];
-            cal8.text = "" + arr[7];
-            cal9.text = "" + arr[8];
+            cal1.text = "" + arr[8];
+            cal2.text = "" + arr[7];
+            cal3.text = "" + arr[6];
+            cal4.text = "" + arr[1];
+            cal5.text = "" + arr[2];
+            cal6.text = "" + arr[0];
+            cal7.text = "" + arr[5];
+            cal8.text = "" + arr[4];
+            cal9.text = "" + arr[3];
         }
 
         onAccepted: {
-            // read back; keep old value if field is empty or invalid
-            var old = pumpCalFactors;
-            var next = [];
+            // Start from the current values so blank fields keep their old value.
+            // Write each field to its pumpId-indexed slot (same mapping as onOpened).
+            var next = pumpCalFactors.slice();
 
             function upd(fieldText, idx) {
                 var t = fieldText.trim();
-                if (t.length === 0) {
-                    next.push(old[idx]);   // keep old
-                    return;
-                }
+                if (t.length === 0) return;       // blank → keep old
                 var v = parseFloat(t);
-                if (isNaN(v) || v <= 0)
-                    next.push(old[idx]);
-                else
-                    next.push(v);
+                if (!isNaN(v) && v > 0) next[idx] = v;
             }
 
-            upd(cal1.text, 0);
-            upd(cal2.text, 1);
-            upd(cal3.text, 2);
-            upd(cal4.text, 3);
-            upd(cal5.text, 4);
-            upd(cal6.text, 5);
-            upd(cal7.text, 6);
-            upd(cal8.text, 7);
-            upd(cal9.text, 8);
+            upd(cal1.text, 8);   // display Pump 1 → pumpId 9 → index 8
+            upd(cal2.text, 7);   // display Pump 2 → pumpId 8 → index 7
+            upd(cal3.text, 6);   // display Pump 3 → pumpId 7 → index 6
+            upd(cal4.text, 1);   // display Pump 4 → pumpId 2 → index 1
+            upd(cal5.text, 2);   // display Pump 5 → pumpId 3 → index 2
+            upd(cal6.text, 0);   // display Pump 6 → pumpId 1 → index 0
+            upd(cal7.text, 5);   // display Pump 7 → pumpId 6 → index 5
+            upd(cal8.text, 4);   // display Pump 8 → pumpId 5 → index 4
+            upd(cal9.text, 3);   // display Pump 9 → pumpId 4 → index 3
 
             pumpCalFactors = next;
             savePumpCalibration();
