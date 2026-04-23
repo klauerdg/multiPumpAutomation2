@@ -179,13 +179,13 @@ Item {
             Layout.fillWidth:  true
             Layout.fillHeight: true
 
-            PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 1"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 1"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
             PumpCardForm { id: pc8; pumpId: 8; titleLabel.text: "Pump 2"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 3"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 4"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 5"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 6"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
-            PumpCardForm { id: pc9; pumpId: 9; titleLabel.text: "Pump 7"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc7; pumpId: 7; titleLabel.text: "Pump 3"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc2; pumpId: 2; titleLabel.text: "Pump 4"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc3; pumpId: 3; titleLabel.text: "Pump 5"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc1; pumpId: 1; titleLabel.text: "Pump 6"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
+            PumpCardForm { id: pc6; pumpId: 6; titleLabel.text: "Pump 7"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
             PumpCardForm { id: pc5; pumpId: 5; titleLabel.text: "Pump 8"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
             PumpCardForm { id: pc4; pumpId: 4; titleLabel.text: "Pump 9"; themeColors: themeColors; Layout.fillWidth: true; Layout.fillHeight: true }
         }

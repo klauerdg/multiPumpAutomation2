@@ -25,6 +25,7 @@ Item {
     property int  pumpPausedAccum: 0
     property int  pumpDurationSec: 0
     property bool pumpStarted:    false
+    property int  pumpStartedAt:  0     // elapsedSec value when this pump was started
 
     property var themeColors: ({
         cardBg:             "#ffffff",

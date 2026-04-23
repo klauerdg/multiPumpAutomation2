@@ -254,6 +254,7 @@ ApplicationWindow {
             cd.paused          = false;
             cd.selected        = false;
             cd.pumpStarted     = false;
+            cd.pumpStartedAt   = 0;
             cd.pumpPausedAt    = -1;
             cd.pumpPausedAccum = 0;
             cd.pumpStopped     = false;
@@ -274,6 +275,7 @@ ApplicationWindow {
 
     function _resetPumpCard(c) {
         c.pumpStopped     = false;
+        c.pumpStartedAt   = 0;
         c.pumpPausedAccum = 0;
         c.pumpPausedAt    = -1;
         c.opacity         = 1.0;
@@ -307,8 +309,11 @@ ApplicationWindow {
                 c.paused = false;
             }
 
-            // Mark this pump as started
-            c.pumpStarted = true;
+            // Mark this pump as started and record the universal timer offset
+            if (!c.pumpStarted) {
+                c.pumpStarted   = true;
+                c.pumpStartedAt = elapsedSec;   // countdown is relative to this moment
+            }
 
             // Stop any setup-page priming for this pump
             var setupCards3 = [setup.pump1, setup.pump2, setup.pump3,
@@ -1413,6 +1418,8 @@ ApplicationWindow {
             rc0.pumpEndSec = 0;
             rc0.pumpStepSec = -1;
             rc0.pumpStopped = false;
+            rc0.pumpStarted = false;
+            rc0.pumpStartedAt = 0;
             rc0.pumpPausedAt = -1;
             rc0.pumpPausedAccum = 0;
         }
@@ -1913,7 +1920,9 @@ ApplicationWindow {
                 if (isNaN(stepMinutes) || stepMinutes <= 0)
                     continue;
 
-                if (elapsedSec < stepMinutes * 60)
+                // Compare against per-pump elapsed (offset by when this pump started)
+                var pumpElapsed = elapsedSec - (c.pumpStartedAt || 0);
+                if (pumpElapsed < stepMinutes * 60)
                     continue;
 
                 var flowVal = parseFloat(flowStr);
@@ -1948,10 +1957,13 @@ ApplicationWindow {
                 if (!pc || !pc.visible) continue;
                 if (!pc.pumpStarted) continue;  // not started yet — skip countdown
 
-                // Effective elapsed: freeze at the moment this pump was paused
+                // Effective elapsed for this pump, relative to when it was started.
+                // pumpStartedAt is the universal timer value at the moment the pump
+                // was started (via Start All or Start Selected), so subtracting it
+                // gives per-pump elapsed time regardless of when the run began.
                 var pcEff = pc.paused
-                    ? Math.max(0, pc.pumpPausedAt - pc.pumpPausedAccum)
-                    : (elapsedSec - pc.pumpPausedAccum);
+                    ? Math.max(0, (pc.pumpPausedAt - pc.pumpStartedAt) - pc.pumpPausedAccum)
+                    : ((elapsedSec - pc.pumpStartedAt) - pc.pumpPausedAccum);
 
                 // Main countdown
                 if (pc.pumpEndSec > 0) {
