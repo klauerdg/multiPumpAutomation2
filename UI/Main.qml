@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.15
 import QtQml 2.15
 import Qt.labs.settings 1.1
 import QtQuick.VirtualKeyboard 2.4
+import QtMultimedia 5.15
 
 ApplicationWindow {
     id: app
@@ -91,8 +92,31 @@ ApplicationWindow {
         inputBg:            "#0a1520"
     })
 
+    // 🌈 Rainbow theme — unlocked by clicking Nyan Cat in Fun Mode
+    readonly property var _rainbow: ({
+        pageBg:             "#fff0f8",
+        toolbarBg:          "#7b1fa2",
+        cardBg:             "#ffffff",
+        cardBgSelected:     "#fce4ec",
+        cardBorder:         "#f48fb1",
+        cardBorderSelected: "#e91e63",
+        buttonBg:           "#e91e63",
+        buttonFlash:        "#c2185b",
+        timerColor:         "#7c4dff",
+        pausedColor:        "#ff6d00",
+        stepColor:          "#00bcd4",
+        primeActive:        "#f8bbd9",
+        primeInactive:      "#fce4ec",
+        inputBg:            "#fff8fc"
+    })
+
     // Currently active theme object
     property var theme: _bluesLight
+
+    // ── Fun Mode ──────────────────────────────────────────────────────────────
+    property bool funMode:          false   // off by default; toggled in settings
+    property bool rainbowUnlocked:  false   // set true by clicking Nyan Cat
+    property bool showConfetti:     false   // true briefly at automation complete
 
     // User-saved custom themes (name → color object), loaded from file on start
     property var savedThemes: ({})
@@ -373,6 +397,10 @@ ApplicationWindow {
         }
 
         if (!runTimer.running) runTimer.start();
+
+        // Fun Mode — play pump sound whenever pumps are started
+        if (app.funMode && pumpSound.status === SoundEffect.Ready)
+            pumpSound.play();
     }
 
     /* ===================== Preset storage ===================== */
@@ -708,6 +736,28 @@ ApplicationWindow {
                         horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                     }
                 }
+                Button {
+                    text: "🌈 Rainbow"
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 110
+                    visible: app.rainbowUnlocked
+                    onClicked: themeDialog.loadEditor(app._rainbow)
+                    background: Rectangle {
+                        radius: 4
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0;  color: "#ff4444" }
+                            GradientStop { position: 0.33; color: "#ffee00" }
+                            GradientStop { position: 0.66; color: "#44cc44" }
+                            GradientStop { position: 1.0;  color: "#9933ff" }
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        style: Text.Outline; styleColor: "#00000055"
+                    }
+                }
                 Item { Layout.fillWidth: true }
                 ComboBox {
                     id: savedThemeCombo
@@ -925,6 +975,25 @@ ApplicationWindow {
 
         footer: RowLayout {
             spacing: 8
+            // Fun Mode toggle lives here so it's always visible in settings
+            CheckBox {
+                id: funModeCheck
+                text: "Fun Mode 🎉"
+                checked: app.funMode
+                font.pixelSize: 14
+                leftPadding: 8
+                onCheckedChanged: {
+                    app.funMode = checked;
+                    if (!checked) nyanSound.stop();
+                }
+                contentItem: Text {
+                    text:            funModeCheck.text
+                    font:            funModeCheck.font
+                    color:           app.contrastColor(app.theme.cardBg || "#ffffff")
+                    leftPadding:     funModeCheck.indicator.width + 6
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
             Item { Layout.fillWidth: true }
             Button {
                 text: "Cancel"
@@ -2047,8 +2116,175 @@ ApplicationWindow {
                         // No manual pumps — safe to stop the display timer
                         runTimer.stop();
                         run.statusLabel.text = "Automation complete.";
+
+                        // Fun Mode — celebrate!
+                        if (app.funMode) {
+                            app.showConfetti = true;
+                            confettiTimer.restart();
+                            if (completeSound.status === SoundEffect.Ready)
+                                completeSound.play();
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    // ── Fun Mode — Sound effects ──────────────────────────────────────────────
+    // Drop WAV files into UI/sounds/ (see sounds/README.txt for names).
+    // SoundEffect silently no-ops if a file is missing, so these are safe.
+    SoundEffect {
+        id: pumpSound
+        source: Qt.resolvedUrl("sounds/pump_start.wav")
+        volume: 0.7
+    }
+    SoundEffect {
+        id: completeSound
+        source: Qt.resolvedUrl("sounds/complete.wav")
+        volume: 0.85
+    }
+    SoundEffect {
+        id: nyanSound
+        source: Qt.resolvedUrl("sounds/nyan.wav")
+        loops: SoundEffect.Infinite
+        volume: 0.5
+    }
+
+    // ── Fun Mode — Confetti layer ─────────────────────────────────────────────
+    Item {
+        id: confettiLayer
+        anchors.fill: parent
+        z: 9995
+        visible: app.showConfetti && app.funMode
+        clip: true
+
+        Timer {
+            id: confettiTimer
+            interval: 5500          // hide confetti after 5.5 s
+            onTriggered: app.showConfetti = false
+        }
+
+        // "Yay!" banner
+        Text {
+            anchors.centerIn: parent
+            z: 1
+            text: "🎉  Yay!  🎉"
+            font.pixelSize: 72
+            font.bold: true
+            color: "#e91e63"
+            style: Text.Outline; styleColor: "#ffffff"
+            SequentialAnimation on scale {
+                running: confettiLayer.visible
+                loops: Animation.Infinite
+                NumberAnimation { to: 1.25; duration: 280; easing.type: Easing.OutQuad }
+                NumberAnimation { to: 1.0;  duration: 220; easing.type: Easing.InQuad  }
+            }
+        }
+
+        // Falling confetti pieces
+        Repeater {
+            model: 70
+            delegate: Rectangle {
+                id: piece
+                // Deterministic "random" placement from the index
+                property real rx: ((index * 137 + 23)  % 1000) / 1000.0
+                property real rd: ((index * 293 + 71)  % 800)          // delay 0-800ms
+                property real rt: 2800 + ((index * 179) % 1500)        // fall time
+                property real rr: ((index * 53)  % 360)                // start rotation
+
+                width:  6 + (index % 5) * 3
+                height: width
+                radius: index % 3 === 0 ? width / 2 : 1
+                color:  ["#ff4444","#ff9900","#ffee00","#44cc00",
+                          "#1e90ff","#9933ff","#ff44cc","#00cccc"][index % 8]
+                x: rx * (app.width - width)
+                y: -20
+
+                SequentialAnimation on y {
+                    loops: Animation.Infinite
+                    running: confettiLayer.visible
+                    PauseAnimation        { duration: piece.rd }
+                    NumberAnimation       { from: -20; to: app.height + 20
+                                            duration: piece.rt; easing.type: Easing.InQuad }
+                }
+                RotationAnimation on rotation {
+                    loops: Animation.Infinite
+                    running: confettiLayer.visible
+                    from: piece.rr; to: piece.rr + 360
+                    duration: 900 + (index % 6) * 150
+                }
+            }
+        }
+    }
+
+    // ── Fun Mode — Nyan Cat overlay ───────────────────────────────────────────
+    Item {
+        id: nyanLayer
+        anchors.fill: parent
+        z: 9996
+        visible: app.funMode
+        clip: false
+
+        NyanCat {
+            id: nyanCatItem
+            y: 70   // start Y; bobbing animation drives it
+
+            onClicked: {
+                if (!app.rainbowUnlocked) {
+                    app.rainbowUnlocked = true;
+                    unlockToast.visible = true;
+                    unlockToastTimer.restart();
+                }
+                // Toggle nyan music
+                if (nyanSound.playing)
+                    nyanSound.stop();
+                else if (app.funMode)
+                    nyanSound.play();
+            }
+
+            // Float left → right, then loop
+            NumberAnimation on x {
+                running: app.funMode
+                loops:   Animation.Infinite
+                from:    -nyanCatItem.width - 10
+                to:      app.width + 10
+                duration: 11000
+                easing.type: Easing.Linear
+            }
+
+            // Gentle vertical bob
+            SequentialAnimation on y {
+                running: app.funMode
+                loops:   Animation.Infinite
+                NumberAnimation { to: 50;  duration: 1600; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 110; duration: 1600; easing.type: Easing.InOutSine }
+            }
+        }
+
+        // "🌈 Rainbow theme unlocked!" toast
+        Rectangle {
+            id: unlockToast
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 160
+            width: unlockToastText.implicitWidth + 28
+            height: 42
+            radius: 10
+            color: "#7b1fa2"
+            visible: false
+            z: 1
+
+            Text {
+                id: unlockToastText
+                anchors.centerIn: parent
+                text: "🌈  Rainbow theme unlocked!  Open Settings to apply."
+                font.pixelSize: 16
+                color: "#ffffff"
+            }
+
+            Timer {
+                id: unlockToastTimer
+                interval: 3500
+                onTriggered: unlockToast.visible = false
             }
         }
     }
@@ -2163,6 +2399,9 @@ ApplicationWindow {
                             var primePps  = primeFlow > 0 ? primeFlow * primeCal : 0.0;
                             backend.prime(pid, primePps);
                         }
+                        // Fun Mode — play pump sound on prime start
+                        if (app.funMode && pumpSound.status === SoundEffect.Ready)
+                            pumpSound.play();
                     } else {
                         if (backend.stop)
                             backend.stop(pid);
