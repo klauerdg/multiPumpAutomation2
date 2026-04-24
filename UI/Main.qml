@@ -348,6 +348,14 @@ ApplicationWindow {
             // If the pump was already running and got paused, accumulate pause time.
             // If it was paused before being started (e.g. Pause All hit an unstarted pump),
             // just clear the paused flag — no accum to add since it never ran.
+            // Capture resume state BEFORE clearing paused, so pulsatile logic can use it.
+            var wasResuming = c.paused && c.pumpStarted;
+            var resumeRemMins = 0;
+            if (wasResuming && c.pumpEndSec > 0) {
+                var prePcEff = Math.max(0, (c.pumpPausedAt - c.pumpStartedAt) - c.pumpPausedAccum);
+                resumeRemMins = Math.max(0, c.pumpEndSec - prePcEff) / 60.0;
+            }
+
             if (c.paused) {
                 if (c.pumpStarted && c.pumpPausedAt >= 0)
                     c.pumpPausedAccum += elapsedSec - c.pumpPausedAt;
@@ -386,7 +394,12 @@ ApplicationWindow {
                         pulsatileAutoIds.push(autoIds[ai]);
                         pulsatileAutoModes.push(autoModes[ai]);
                         pulsatileAutoShapes.push(autoShapes[ai]);
-                        pulsatileAutoMins.push(autoMins[ai]);
+                        // Resume: use remaining time (or 0 for no-limit).
+                        // Fresh start: use original configured duration.
+                        var pulMinToUse = wasResuming
+                            ? (c.pumpEndSec > 0 ? resumeRemMins : 0)
+                            : autoMins[ai];
+                        pulsatileAutoMins.push(pulMinToUse);
                         pulsatileAutoPeriods.push(autoPeriods[ai]);
                         pulsatileAutoDuties.push(autoDuties[ai]);
                         var pulCal = calibrationForPumpId(autoIds[ai]);
@@ -2568,14 +2581,17 @@ ApplicationWindow {
                 var idx4 = pausedPumpIds.indexOf(pid4);
                 if (idx4 !== -1) pausedPumpIds.splice(idx4, 1);
 
-                // Pulsatile pumps need startAutomation (not just set_flow)
-                if (isPulsatile4 && remSec4 > 0) {
+                // Pulsatile pumps need startAutomation (not just set_flow).
+                // Always restart regardless of time limit — pass remaining mins,
+                // or 0 for no-limit pumps (0 = run indefinitely in backend).
+                if (isPulsatile4) {
                     for (var ai4 = 0; ai4 < autoIds.length; ++ai4) {
                         if (autoIds[ai4] === pid4) {
                             pulsatileReIds.push(autoIds[ai4]);
                             pulsatileReModes.push(autoModes[ai4]);
                             pulsatileReShapes.push(autoShapes[ai4]);
-                            pulsatileReMins.push(remSec4 / 60.0);  // remaining minutes
+                            var minsToResume = c4.pumpEndSec > 0 ? remSec4 / 60.0 : 0;
+                            pulsatileReMins.push(minsToResume);
                             pulsatileRePer.push(autoPeriods[ai4]);
                             pulsatileReDuty.push(autoDuties[ai4]);
                             var reCal = calibrationForPumpId(autoIds[ai4]);
