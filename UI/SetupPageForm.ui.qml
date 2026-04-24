@@ -27,6 +27,10 @@ Item {
     property alias pump8: pc8
     property alias pump9: pc9
 
+    // ── Rainbow toolbar animation (driven from Main.qml) ─────────────────────
+    property bool  rainbowToolbar:      false
+    property color rainbowToolbarColor: "#e53935"
+
     // ── Theme (set from Main.qml via Qt.binding) ─────────────────────────────
     property var themeColors: ({
         pageBg:             "#eef1f5",
@@ -81,7 +85,7 @@ Item {
             Layout.fillWidth: true
             height: 58
             radius: 6
-            color: themeColors.toolbarBg || "#1565c0"
+            color: root.rainbowToolbar ? root.rainbowToolbarColor : (themeColors.toolbarBg || "#1565c0")
             Behavior on color { ColorAnimation { duration: 200 } }
 
             RowLayout {

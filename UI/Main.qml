@@ -93,20 +93,21 @@ ApplicationWindow {
 
     // 🌈 Rainbow theme — unlocked by clicking Nyan Cat in Fun Mode
     readonly property var _rainbow: ({
-        pageBg:             "#fff0f8",
-        toolbarBg:          "#7b1fa2",
+        name:               "rainbow",
+        pageBg:             "#fffde7",
+        toolbarBg:          "#e53935",
         cardBg:             "#ffffff",
-        cardBgSelected:     "#fce4ec",
-        cardBorder:         "#f48fb1",
-        cardBorderSelected: "#e91e63",
-        buttonBg:           "#e91e63",
-        buttonFlash:        "#c2185b",
-        timerColor:         "#7c4dff",
-        pausedColor:        "#ff6d00",
-        stepColor:          "#00bcd4",
-        primeActive:        "#f8bbd9",
-        primeInactive:      "#fce4ec",
-        inputBg:            "#fff8fc"
+        cardBgSelected:     "#e8f5e9",
+        cardBorder:         "#4fc3f7",
+        cardBorderSelected: "#0288d1",
+        buttonBg:           "#6200ea",
+        buttonFlash:        "#3d5afe",
+        timerColor:         "#c62828",
+        pausedColor:        "#e65100",
+        stepColor:          "#2e7d32",
+        primeActive:        "#fff59d",
+        primeInactive:      "#e3f2fd",
+        inputBg:            "#ffffff"
     })
 
     // Currently active theme object
@@ -116,6 +117,21 @@ ApplicationWindow {
     property bool funMode:          false   // off by default; toggled in settings
     property bool rainbowUnlocked:  false   // set true by clicking Nyan Cat
     property bool showConfetti:     false   // true briefly at automation complete
+    property bool _isRainbow:       false   // true when rainbow theme is active
+    property real lastPressY:       300     // y of last screen press, for Nyan Cat targeting
+
+    // Animated toolbar colour that cycles through the rainbow
+    property color _rainbowToolbarColor: "#e53935"
+    SequentialAnimation on _rainbowToolbarColor {
+        running: _isRainbow
+        loops:   Animation.Infinite
+        ColorAnimation { to: "#e53935"; duration: 700 }   // red
+        ColorAnimation { to: "#fb8c00"; duration: 700 }   // orange
+        ColorAnimation { to: "#fdd835"; duration: 700 }   // yellow
+        ColorAnimation { to: "#43a047"; duration: 700 }   // green
+        ColorAnimation { to: "#1e88e5"; duration: 700 }   // blue
+        ColorAnimation { to: "#8e24aa"; duration: 700 }   // violet
+    }
 
     // User-saved custom themes (name → color object), loaded from file on start
     property var savedThemes: ({})
@@ -135,6 +151,11 @@ ApplicationWindow {
             if (rc[j]) rc[j].themeColors = t;
         setup.themeColors = t;
         run.themeColors   = t;
+        // Rainbow mode: animated toolbar in header + setup form
+        app._isRainbow = (t.name === "rainbow");
+        setup.rainbowToolbar = app._isRainbow;
+        if (app._isRainbow)
+            setup.rainbowToolbarColor = Qt.binding(function() { return app._rainbowToolbarColor; });
     }
 
     function persistTheme() {
@@ -1839,7 +1860,7 @@ ApplicationWindow {
     header: Rectangle {
         width:  parent.width
         height: 42
-        color:  app.theme.toolbarBg || "#1565c0"
+        color:  app._isRainbow ? app._rainbowToolbarColor : (app.theme.toolbarBg || "#1565c0")
         Behavior on color { ColorAnimation { duration: 200 } }
 
         RowLayout {
@@ -2190,6 +2211,14 @@ ApplicationWindow {
         }
     }
 
+    // ── Global press tracker — records Y for Nyan Cat targeting ─────────────────
+    MouseArea {
+        anchors.fill:          parent
+        z:                     9990
+        propagateComposedEvents: true
+        onPressed: { app.lastPressY = mouse.y; mouse.accepted = false; }
+    }
+
     // ── Fun Mode — Nyan Cat overlay ───────────────────────────────────────────
     Item {
         id: nyanLayer
@@ -2210,22 +2239,34 @@ ApplicationWindow {
                 }
             }
 
-            // Float left → right, then loop
-            NumberAnimation on x {
+            // Fly across with a 5-second gap between passes,
+            // targeting the y position of the last screen press.
+            SequentialAnimation {
                 running: app.funMode
                 loops:   Animation.Infinite
-                from:    -nyanCatItem.width - 10
-                to:      app.width + 10
-                duration: 11000
-                easing.type: Easing.Linear
-            }
 
-            // Gentle vertical bob
-            SequentialAnimation on y {
-                running: app.funMode
-                loops:   Animation.Infinite
-                NumberAnimation { to: 50;  duration: 1600; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 110; duration: 1600; easing.type: Easing.InOutSine }
+                // Snap into position just off the left edge before each pass
+                ScriptAction {
+                    script: {
+                        nyanCatItem.x = -nyanCatItem.width - 10;
+                        nyanCatItem.y = Math.max(10,
+                            Math.min(app.height - nyanCatItem.height - 10,
+                                     app.lastPressY - nyanCatItem.height / 2));
+                    }
+                }
+
+                // Fly left → right
+                NumberAnimation {
+                    target:   nyanCatItem
+                    property: "x"
+                    from:     -nyanCatItem.width - 10
+                    to:       app.width + 10
+                    duration: 11000
+                    easing.type: Easing.Linear
+                }
+
+                // Wait before next flight
+                PauseAnimation { duration: 5000 }
             }
         }
 
