@@ -157,6 +157,7 @@ ApplicationWindow {
     property bool rainbowUnlocked:      false   // unlocked by clicking Nyan Cat
     property bool northeasternUnlocked: false   // unlocked by typing 1898 in any flow field
     property bool transparentUnlocked:  false   // unlocked by checkbox in Advanced dialog
+    property bool showHuskyPopup:       false   // shown on 1898 easter egg trigger
     property bool showConfetti:         false
     property bool _isRainbow:           false
     property real lastPressY:           300
@@ -2454,6 +2455,62 @@ ApplicationWindow {
             Qt.inputMethod.show();
     }
 
+    // ── 1898 easter egg — "Go Huskies" popup ─────────────────────────────────
+    // Dim backdrop
+    Rectangle {
+        anchors.fill: parent
+        color: "#bb000000"
+        z: 9997
+        visible: app.showHuskyPopup
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { app.showHuskyPopup = false; huskyTimer.stop(); }
+        }
+    }
+
+    // Photo card
+    Rectangle {
+        id: huskyPopupCard
+        z: 9998
+        visible: app.showHuskyPopup
+        width:  340
+        height: 460
+        radius: 16
+        anchors.centerIn: parent
+        clip: true
+
+        Image {
+            anchors.fill: parent
+            source: Qt.resolvedUrl("images/go_huskies.jpg")
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+        }
+
+        // Tap anywhere on card to dismiss
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { app.showHuskyPopup = false; huskyTimer.stop(); }
+        }
+
+        // "Tap to close" hint
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 10
+            text: "tap to close"
+            font.pixelSize: 12
+            color: "#ccffffff"
+            style: Text.Outline
+            styleColor: "#88000000"
+        }
+    }
+
+    Timer {
+        id: huskyTimer
+        interval: 8000
+        onTriggered: app.showHuskyPopup = false
+    }
+
     /* ===================== Wiring on startup ===================== */
 
     Component.onCompleted: {
@@ -2487,10 +2544,14 @@ ApplicationWindow {
 
         // ── Easter egg: "1898" in any numeric field unlocks Northeastern theme ──
         function _checkNU(text) {
-            if (app.funMode && !app.northeasternUnlocked && text === "1898") {
-                app.northeasternUnlocked = true;
-                nuToast.visible = true;
-                nuToastTimer.restart();
+            if (app.funMode && text === "1898") {
+                if (!app.northeasternUnlocked) {
+                    app.northeasternUnlocked = true;
+                    nuToast.visible = true;
+                    nuToastTimer.restart();
+                }
+                app.showHuskyPopup = true;
+                huskyTimer.restart();
             }
         }
         setup.groupFlowField.textChanged.connect(function() { _checkNU(setup.groupFlowField.text); });
