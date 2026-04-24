@@ -252,12 +252,30 @@ ApplicationWindow {
             setup.pump4, setup.pump5, setup.pump6,
             setup.pump7, setup.pump8, setup.pump9
         ];
+        var runCards = [run.r1, run.r2, run.r3, run.r4,
+                        run.r5, run.r6, run.r7, run.r8, run.r9];
 
         for (var i = 0; i < pumps.length; ++i) {
             if (!isPumpSelected(pumps[i])) continue;
             setPumpFlow(pumps[i], v);
-            // Revert to simple mode — clear any advanced settings
             pumps[i].advMode = "";
+
+            // If this pump is currently running, update hardware + run card in real-time
+            var pid = pumps[i].pumpId;
+            var calFactor = calibrationForPumpId(pid);
+            for (var j = 0; j < runCards.length; ++j) {
+                var rc = runCards[j];
+                if (!rc || !rc.visible || pumpIdFromRunCard(rc) !== pid) continue;
+                if (!rc.pumpStarted || rc.pumpStopped) continue;
+                // Always update rawFlow + display so resume/step logic stays correct
+                rc.rawFlow = v;
+                if (rc.setFlowValue) rc.setFlowValue.text = v.toFixed(2);
+                if (rc.ppsLabel)     rc.ppsLabel.text = (v * calFactor).toFixed(0);
+                // Only send to hardware if not paused (resume will pick up rawFlow)
+                if (!rc.paused && typeof backend !== "undefined" && backend.set_flow)
+                    backend.set_flow(pid, v * calFactor);
+                break;
+            }
         }
 
         console.log("Apply to Selected ->", v, "µL/min");
@@ -1932,6 +1950,8 @@ ApplicationWindow {
                     var pumps = [setup.pump1, setup.pump2, setup.pump3,
                                  setup.pump4, setup.pump5, setup.pump6,
                                  setup.pump7, setup.pump8, setup.pump9];
+                    var advRunCards = [run.r1, run.r2, run.r3, run.r4,
+                                       run.r5, run.r6, run.r7, run.r8, run.r9];
                     var mode = advModeCombo.currentText;
                     for (var i = 0; i < pumps.length; ++i) {
                         var card = pumps[i];
@@ -1940,9 +1960,13 @@ ApplicationWindow {
                         card.advTotalMinutes = advTimeLimitCheck.checked
                                               ? (parseFloat(advTotalMinutesField.text) || 0.0)
                                               : 0.0;
+                        var newFlow = NaN;
                         if (mode === "Constant") {
                             var bf = parseFloat(advBaseFlowField.text);
-                            if (!isNaN(bf) && bf >= 0) card.flowField.text = bf.toFixed(2);
+                            if (!isNaN(bf) && bf >= 0) {
+                                card.flowField.text = bf.toFixed(2);
+                                newFlow = bf;
+                            }
                             card.advStepEnabled = advStepCheck.checked;
                             card.advStepMinutes = parseFloat(advStepMinField.text)  || 2.0;
                             card.advStepFlow    = parseFloat(advStepFlowField.text) || 0.0;
@@ -1954,6 +1978,23 @@ ApplicationWindow {
                             card.advPeriod  = parseFloat(advPeriodField.text)  || 2.0;
                             card.advDuty    = parseFloat(advDutyField.text)    || 50.0;
                             card.advMinFlow = parseFloat(advMinFlowField.text) || 0.0;
+                        }
+
+                        // Live-update a running constant-flow pump
+                        if (mode === "Constant" && !isNaN(newFlow) && newFlow >= 0) {
+                            var advPid = card.pumpId;
+                            var advCal = calibrationForPumpId(advPid);
+                            for (var aj = 0; aj < advRunCards.length; ++aj) {
+                                var arc = advRunCards[aj];
+                                if (!arc || !arc.visible || pumpIdFromRunCard(arc) !== advPid) continue;
+                                if (!arc.pumpStarted || arc.pumpStopped) continue;
+                                arc.rawFlow = newFlow;
+                                if (arc.setFlowValue) arc.setFlowValue.text = newFlow.toFixed(2);
+                                if (arc.ppsLabel)     arc.ppsLabel.text = (newFlow * advCal).toFixed(0);
+                                if (!arc.paused && typeof backend !== "undefined" && backend.set_flow)
+                                    backend.set_flow(advPid, newFlow * advCal);
+                                break;
+                            }
                         }
                     }
                     advancedDialog.close();
