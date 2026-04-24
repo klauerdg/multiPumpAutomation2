@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import threading
+import subprocess
 from typing import Optional, Dict, List
 
 import serial
@@ -268,6 +269,8 @@ class QBackend(QObject):
         # saved flows for "pause selected" so we can resume
         self.paused_flows: Dict[int, float] = {}
         self._last_error = ""
+        # Sound subprocess tracking: name -> Popen
+        self._sound_procs: Dict[str, subprocess.Popen] = {}
 
     # ---------- Internal helpers ----------
 
@@ -623,3 +626,63 @@ class QBackend(QObject):
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"[backend] Run log saved: {path}")
+
+    # ---------- Sound playback (subprocess / aplay) ----------
+
+    def _sounds_dir(self) -> str:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "UI", "sounds")
+
+    def _sound_path(self, name: str) -> str:
+        return os.path.join(self._sounds_dir(), f"{name}.wav")
+
+    def _kill_sound(self, name: str):
+        proc = self._sound_procs.pop(name, None)
+        if proc and proc.poll() is None:
+            try:
+                proc.kill()
+                proc.wait(timeout=1)
+            except Exception:
+                pass
+
+    @Slot(str)
+    def play_sound(self, name: str):
+        """Play a WAV file once via aplay (non-blocking). Silently ignored if file missing."""
+        path = self._sound_path(name)
+        if not os.path.isfile(path):
+            return
+        self._kill_sound(name)  # kill any previous one-shot of same name
+        try:
+            proc = subprocess.Popen(
+                ["aplay", "-q", path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._sound_procs[name] = proc
+        except FileNotFoundError:
+            print("[backend] aplay not found — install alsa-utils for sound support")
+        except Exception as e:
+            print(f"[backend] play_sound({name}) failed: {e}")
+
+    @Slot(str)
+    def play_sound_loop(self, name: str):
+        """Loop a WAV file indefinitely via aplay. Silently ignored if file missing."""
+        path = self._sound_path(name)
+        if not os.path.isfile(path):
+            return
+        self._kill_sound(name)
+        try:
+            proc = subprocess.Popen(
+                ["bash", "-c", f'while true; do aplay -q "{path}"; done'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._sound_procs[name] = proc
+        except FileNotFoundError:
+            print("[backend] bash/aplay not found — install alsa-utils for sound support")
+        except Exception as e:
+            print(f"[backend] play_sound_loop({name}) failed: {e}")
+
+    @Slot(str)
+    def stop_sound(self, name: str):
+        """Stop a playing or looping sound by name."""
+        self._kill_sound(name)

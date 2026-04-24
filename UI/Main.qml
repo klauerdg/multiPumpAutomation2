@@ -4,7 +4,6 @@ import QtQuick.Layouts 1.15
 import QtQml 2.15
 import Qt.labs.settings 1.1
 import QtQuick.VirtualKeyboard 2.4
-import QtMultimedia 5.15
 
 ApplicationWindow {
     id: app
@@ -398,9 +397,6 @@ ApplicationWindow {
 
         if (!runTimer.running) runTimer.start();
 
-        // Fun Mode — play pump sound whenever pumps are started
-        if (app.funMode && pumpSound.status === SoundEffect.Ready)
-            pumpSound.play();
     }
 
     /* ===================== Preset storage ===================== */
@@ -984,7 +980,6 @@ ApplicationWindow {
                 leftPadding: 8
                 onCheckedChanged: {
                     app.funMode = checked;
-                    if (!checked) nyanSound.stop();
                 }
                 contentItem: Text {
                     text:            funModeCheck.text
@@ -2121,33 +2116,11 @@ ApplicationWindow {
                         if (app.funMode) {
                             app.showConfetti = true;
                             confettiTimer.restart();
-                            if (completeSound.status === SoundEffect.Ready)
-                                completeSound.play();
                         }
                     }
                 }
             }
         }
-    }
-
-    // ── Fun Mode — Sound effects ──────────────────────────────────────────────
-    // Drop WAV files into UI/sounds/ (see sounds/README.txt for names).
-    // SoundEffect silently no-ops if a file is missing, so these are safe.
-    SoundEffect {
-        id: pumpSound
-        source: Qt.resolvedUrl("sounds/pump_start.wav")
-        volume: 0.7
-    }
-    SoundEffect {
-        id: completeSound
-        source: Qt.resolvedUrl("sounds/complete.wav")
-        volume: 0.85
-    }
-    SoundEffect {
-        id: nyanSound
-        source: Qt.resolvedUrl("sounds/nyan.wav")
-        loops: SoundEffect.Infinite
-        volume: 0.5
     }
 
     // ── Fun Mode — Confetti layer ─────────────────────────────────────────────
@@ -2235,11 +2208,6 @@ ApplicationWindow {
                     unlockToast.visible = true;
                     unlockToastTimer.restart();
                 }
-                // Toggle nyan music
-                if (nyanSound.playing)
-                    nyanSound.stop();
-                else if (app.funMode)
-                    nyanSound.play();
             }
 
             // Float left → right, then loop
@@ -2399,9 +2367,6 @@ ApplicationWindow {
                             var primePps  = primeFlow > 0 ? primeFlow * primeCal : 0.0;
                             backend.prime(pid, primePps);
                         }
-                        // Fun Mode — play pump sound on prime start
-                        if (app.funMode && pumpSound.status === SoundEffect.Ready)
-                            pumpSound.play();
                     } else {
                         if (backend.stop)
                             backend.stop(pid);
