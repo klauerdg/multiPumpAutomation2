@@ -69,6 +69,15 @@ Item {
     Component.onCompleted: _applyTheme()
 
     // ── Page background ───────────────────────────────────────────────────────
+    // Photo layer (behind tint; visible only when theme supplies a bgImage)
+    Image {
+        anchors.fill: parent
+        source:       (themeColors.bgImage && themeColors.bgImage !== "")
+                      ? Qt.resolvedUrl("images/" + themeColors.bgImage) : ""
+        fillMode:     Image.PreserveAspectCrop
+        visible:      source !== ""
+        asynchronous: true
+    }
     Rectangle {
         anchors.fill: parent
         color: themeColors.pageBg || "#e3f2fd"

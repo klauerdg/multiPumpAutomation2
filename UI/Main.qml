@@ -94,31 +94,72 @@ ApplicationWindow {
     // 🌈 Rainbow theme — unlocked by clicking Nyan Cat in Fun Mode
     readonly property var _rainbow: ({
         name:               "rainbow",
-        pageBg:             "#fffde7",
+        pageBg:             "#fff0f5",
         toolbarBg:          "#e53935",
         cardBg:             "#ffffff",
-        cardBgSelected:     "#e8f5e9",
-        cardBorder:         "#4fc3f7",
-        cardBorderSelected: "#0288d1",
-        buttonBg:           "#6200ea",
-        buttonFlash:        "#3d5afe",
-        timerColor:         "#c62828",
-        pausedColor:        "#e65100",
-        stepColor:          "#2e7d32",
-        primeActive:        "#fff59d",
-        primeInactive:      "#e3f2fd",
+        cardBgSelected:     "#b9f6ca",
+        cardBorder:         "#ff4081",
+        cardBorderSelected: "#00e5ff",
+        buttonBg:           "#d500f9",
+        buttonFlash:        "#00e5ff",
+        timerColor:         "#ff1744",
+        pausedColor:        "#ff6d00",
+        stepColor:          "#00e676",
+        primeActive:        "#ffff00",
+        primeInactive:      "#e040fb",
         inputBg:            "#ffffff"
+    })
+
+    // ── Secret themes (unlocked via easter eggs) ──────────────────────────────
+    readonly property var _northeastern: ({
+        name:               "northeastern",
+        pageBg:             "#00000000",   // transparent — husky photo shows through
+        toolbarBg:          "#c8102e",     // NU Red
+        cardBg:             "#CC000000",   // 80% black glass
+        cardBgSelected:     "#CC3a0000",   // dark blood-red glass when selected
+        cardBorder:         "#666666",
+        cardBorderSelected: "#c8102e",
+        buttonBg:           "#c8102e",
+        buttonFlash:        "#7a0000",
+        timerColor:         "#ff8888",
+        pausedColor:        "#ffaa44",
+        stepColor:          "#88ff99",
+        primeActive:        "#CC550000",
+        primeInactive:      "#88000000",
+        inputBg:            "#CC111111",
+        bgImage:            "husky.jpg"
+    })
+
+    readonly property var _transparent: ({
+        name:               "transparent",
+        pageBg:             "#00000000",   // transparent — electronics photo shows through
+        toolbarBg:          "#AA000000",   // dark glass toolbar
+        cardBg:             "#66000000",   // 40% black glass
+        cardBgSelected:     "#88003355",   // blue-tinted glass when selected
+        cardBorder:         "#88ffffff",
+        cardBorderSelected: "#CCffffff",
+        buttonBg:           "#AA1a1a2e",
+        buttonFlash:        "#CC1a1a2e",
+        timerColor:         "#88ddff",
+        pausedColor:        "#ffaa44",
+        stepColor:          "#88ff88",
+        primeActive:        "#66002244",
+        primeInactive:      "#44000000",
+        inputBg:            "#55000000",
+        bgImage:            "electronics.jpg"
     })
 
     // Currently active theme object
     property var theme: _bluesLight
 
     // ── Fun Mode ──────────────────────────────────────────────────────────────
-    property bool funMode:          false   // off by default; toggled in settings
-    property bool rainbowUnlocked:  false   // set true by clicking Nyan Cat
-    property bool showConfetti:     false   // true briefly at automation complete
-    property bool _isRainbow:       false   // true when rainbow theme is active
-    property real lastPressY:       300     // y of last screen press, for Nyan Cat targeting
+    property bool funMode:               false
+    property bool rainbowUnlocked:      false   // unlocked by clicking Nyan Cat
+    property bool northeasternUnlocked: false   // unlocked by typing 1898 in any flow field
+    property bool transparentUnlocked:  false   // unlocked by checkbox in Advanced dialog
+    property bool showConfetti:         false
+    property bool _isRainbow:           false
+    property real lastPressY:           300
 
     // Animated toolbar colour that cycles through the rainbow
     property color _rainbowToolbarColor: "#e53935"
@@ -151,7 +192,7 @@ ApplicationWindow {
             if (rc[j]) rc[j].themeColors = t;
         setup.themeColors = t;
         run.themeColors   = t;
-        // Rainbow mode: animated toolbar in header + setup form
+        // Rainbow: animated toolbar
         app._isRainbow = (t.name === "rainbow");
         setup.rainbowToolbar = app._isRainbow;
         if (app._isRainbow)
@@ -786,6 +827,38 @@ ApplicationWindow {
                         text: parent.text; font: parent.font; color: "#ffffff"
                         horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                         style: Text.Outline; styleColor: "#00000055"
+                    }
+                }
+                Button {
+                    text: "🐺 Northeastern"
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 140
+                    visible: app.northeasternUnlocked
+                    onClicked: app.switchTheme(app._northeastern)
+                    background: Rectangle {
+                        radius: 4
+                        color: "#c8102e"
+                    }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                }
+                Button {
+                    text: "📷 Transparent"
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 130
+                    visible: app.transparentUnlocked
+                    onClicked: app.switchTheme(app._transparent)
+                    background: Rectangle {
+                        radius: 4
+                        color: "#333355"
+                        border.color: "#aaaacc"; border.width: 1
+                    }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "#ccccff"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                     }
                 }
                 Item { Layout.fillWidth: true }
@@ -1646,6 +1719,26 @@ ApplicationWindow {
             anchors.margins: 12
             spacing: 8
 
+            // Secret transparent-theme unlock (upper-right, only in fun mode)
+            RowLayout {
+                Layout.fillWidth: true
+                visible: app.funMode
+                Item { Layout.fillWidth: true }
+                CheckBox {
+                    id: transparentUnlockCheck
+                    text: "📷"
+                    font.pixelSize: 16
+                    checked: app.transparentUnlocked
+                    onCheckedChanged: {
+                        if (checked && app.funMode)
+                            app.transparentUnlocked = true;
+                    }
+                    ToolTip.visible: hovered
+                    ToolTip.text:   "Unlock Transparent theme"
+                    ToolTip.delay:  600
+                }
+            }
+
             RowLayout {
                 spacing: 8
                 Label { text: "Mode:"; font.pixelSize: 14 }
@@ -2240,9 +2333,12 @@ ApplicationWindow {
         visible: app.funMode
         clip: false
 
+        // Tracks the y mid-point for the current pass (set by ScriptAction)
+        property real nyanBaseY: 200
+
         NyanCat {
             id: nyanCatItem
-            y: 70   // start Y; bobbing animation drives it
+            y: nyanLayer.nyanBaseY
 
             onClicked: {
                 if (!app.rainbowUnlocked) {
@@ -2252,34 +2348,38 @@ ApplicationWindow {
                 }
             }
 
-            // Fly across with a 5-second gap between passes,
-            // targeting the y position of the last screen press.
+            // Fly across with a 5-second gap, targeting last press y.
             SequentialAnimation {
                 running: app.funMode
                 loops:   Animation.Infinite
 
-                // Snap into position just off the left edge before each pass
                 ScriptAction {
                     script: {
-                        nyanCatItem.x = -nyanCatItem.width - 10;
-                        nyanCatItem.y = Math.max(10,
+                        nyanLayer.nyanBaseY = Math.max(10,
                             Math.min(app.height - nyanCatItem.height - 10,
                                      app.lastPressY - nyanCatItem.height / 2));
+                        nyanCatItem.x = -nyanCatItem.width - 10;
+                        nyanCatItem.y = nyanLayer.nyanBaseY;
                     }
                 }
 
-                // Fly left → right
                 NumberAnimation {
-                    target:   nyanCatItem
-                    property: "x"
-                    from:     -nyanCatItem.width - 10
-                    to:       app.width + 10
+                    target: nyanCatItem; property: "x"
+                    from:   -nyanCatItem.width - 10
+                    to:     app.width + 10
                     duration: 11000
                     easing.type: Easing.Linear
                 }
 
-                // Wait before next flight
                 PauseAnimation { duration: 5000 }
+            }
+
+            // Gentle vertical bob around nyanBaseY, runs throughout flight + gap
+            SequentialAnimation on y {
+                running: app.funMode
+                loops:   Animation.Infinite
+                NumberAnimation { to: nyanLayer.nyanBaseY - 28; duration: 1400; easing.type: Easing.InOutSine }
+                NumberAnimation { to: nyanLayer.nyanBaseY + 28; duration: 1400; easing.type: Easing.InOutSine }
             }
         }
 
@@ -2307,6 +2407,34 @@ ApplicationWindow {
                 id: unlockToastTimer
                 interval: 3500
                 onTriggered: unlockToast.visible = false
+            }
+        }
+
+        // "🐺 Northeastern theme unlocked!" toast
+        Rectangle {
+            id: nuToast
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 210
+            width: nuToastText.implicitWidth + 28
+            height: 42
+            radius: 10
+            color: "#c8102e"
+            visible: false
+            z: 1
+
+            Text {
+                id: nuToastText
+                anchors.centerIn: parent
+                text: "🐺  Northeastern theme unlocked!  Open Settings to apply."
+                font.pixelSize: 16
+                color: "#ffffff"
+                font.bold: true
+            }
+
+            Timer {
+                id: nuToastTimer
+                interval: 3500
+                onTriggered: nuToast.visible = false
             }
         }
     }
@@ -2356,6 +2484,25 @@ ApplicationWindow {
 
         if (typeof backend !== "undefined" && backend.refreshPorts)
             backend.refreshPorts();
+
+        // ── Easter egg: "1898" in any numeric field unlocks Northeastern theme ──
+        function _checkNU(text) {
+            if (app.funMode && !app.northeasternUnlocked && text === "1898") {
+                app.northeasternUnlocked = true;
+                nuToast.visible = true;
+                nuToastTimer.restart();
+            }
+        }
+        setup.groupFlowField.textChanged.connect(function() { _checkNU(setup.groupFlowField.text); });
+        setup.primeFlowField.textChanged.connect(function() { _checkNU(setup.primeFlowField.text); });
+        var nuCards = [setup.pump1, setup.pump2, setup.pump3,
+                       setup.pump4, setup.pump5, setup.pump6,
+                       setup.pump7, setup.pump8, setup.pump9];
+        for (var ni = 0; ni < nuCards.length; ++ni) {
+            (function(card) {
+                card.flowField.textChanged.connect(function() { _checkNU(card.flowField.text); });
+            })(nuCards[ni]);
+        }
 
         // Setup buttons
         setup.applyGroupButton.clicked.connect(app.applyGroupFlowToSelected);
