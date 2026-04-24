@@ -67,14 +67,6 @@ Item {
     })
 
     // ── Page background ───────────────────────────────────────────────────────
-    Image {
-        anchors.fill: parent
-        source:       (themeColors.bgImage && themeColors.bgImage !== "")
-                      ? Qt.resolvedUrl("images/" + themeColors.bgImage) : ""
-        fillMode:     Image.PreserveAspectCrop
-        visible:      source !== ""
-        asynchronous: true
-    }
     Rectangle {
         anchors.fill: parent
         color: themeColors.pageBg || "#e3f2fd"

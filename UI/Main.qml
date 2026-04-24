@@ -126,8 +126,7 @@ ApplicationWindow {
         stepColor:          "#88ff99",
         primeActive:        "#CC550000",
         primeInactive:      "#88000000",
-        inputBg:            "#CC111111",
-        bgImage:            "husky.jpg"
+        inputBg:            "#CC111111"
     })
 
     readonly property var _transparent: ({
@@ -145,8 +144,7 @@ ApplicationWindow {
         stepColor:          "#88ff88",
         primeActive:        "#66002244",
         primeInactive:      "#44000000",
-        inputBg:            "#55000000",
-        bgImage:            "electronics.jpg"
+        inputBg:            "#55000000"
     })
 
     // Currently active theme object
@@ -157,7 +155,6 @@ ApplicationWindow {
     property bool rainbowUnlocked:      false   // unlocked by clicking Nyan Cat
     property bool northeasternUnlocked: false   // unlocked by typing 1898 in any flow field
     property bool transparentUnlocked:  false   // unlocked by checkbox in Advanced dialog
-    property bool showHuskyPopup:       false   // shown on 1898 easter egg trigger
     property bool showConfetti:         false
     property bool _isRainbow:           false
     property real lastPressY:           300
@@ -859,9 +856,10 @@ ApplicationWindow {
                         color: "#c8102e"
                     }
                     contentItem: Text {
-                        text: parent.text; font: parent.font; color: "#ffffff"
+                        text: parent.text
+                        font.pixelSize: 14; font.bold: true
+                        color: "#ffffff"
                         horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        font.bold: true
                     }
                 }
                 Button {
@@ -2497,60 +2495,6 @@ ApplicationWindow {
     }
 
     // ── 1898 easter egg — "Go Huskies" popup ─────────────────────────────────
-    // Dim backdrop
-    Rectangle {
-        anchors.fill: parent
-        color: "#bb000000"
-        z: 9997
-        visible: app.showHuskyPopup
-        MouseArea {
-            anchors.fill: parent
-            onClicked: { app.showHuskyPopup = false; huskyTimer.stop(); }
-        }
-    }
-
-    // Photo card
-    Rectangle {
-        id: huskyPopupCard
-        z: 9998
-        visible: app.showHuskyPopup
-        width:  340
-        height: 460
-        radius: 16
-        anchors.centerIn: parent
-        clip: true
-
-        Image {
-            anchors.fill: parent
-            source: Qt.resolvedUrl("images/go_huskies.jpg")
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-        }
-
-        // Tap anywhere on card to dismiss
-        MouseArea {
-            anchors.fill: parent
-            onClicked: { app.showHuskyPopup = false; huskyTimer.stop(); }
-        }
-
-        // "Tap to close" hint
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 10
-            text: "tap to close"
-            font.pixelSize: 12
-            color: "#ccffffff"
-            style: Text.Outline
-            styleColor: "#88000000"
-        }
-    }
-
-    Timer {
-        id: huskyTimer
-        interval: 8000
-        onTriggered: app.showHuskyPopup = false
-    }
 
     /* ===================== Wiring on startup ===================== */
 
@@ -2591,8 +2535,6 @@ ApplicationWindow {
                     nuToast.visible = true;
                     nuToastTimer.restart();
                 }
-                app.showHuskyPopup = true;
-                huskyTimer.restart();
             }
         }
         setup.groupFlowField.textChanged.connect(function() { _checkNU(setup.groupFlowField.text); });
