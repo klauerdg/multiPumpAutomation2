@@ -126,7 +126,8 @@ ApplicationWindow {
         stepColor:          "#88ff99",
         primeActive:        "#CC550000",
         primeInactive:      "#88000000",
-        inputBg:            "#CC111111"
+        inputBg:            "#CC111111",
+        bgImage:            "husky.jpg"
     })
 
     readonly property var _transparent: ({
@@ -144,7 +145,8 @@ ApplicationWindow {
         stepColor:          "#88ff88",
         primeActive:        "#66002244",
         primeInactive:      "#44000000",
-        inputBg:            "#55000000"
+        inputBg:            "#55000000",
+        bgImage:            "electronics.jpg"
     })
 
     // Currently active theme object

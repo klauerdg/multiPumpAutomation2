@@ -67,10 +67,20 @@ Item {
     })
 
     // ── Page background ───────────────────────────────────────────────────────
+    // Solid colour fill (always present; pageBg may be transparent for photo themes)
     Rectangle {
         anchors.fill: parent
         color: themeColors.pageBg || "#e3f2fd"
         Behavior on color { ColorAnimation { duration: 200 } }
+    }
+    // Photo layer — only shown when the theme supplies a bgImage and the file loads
+    Image {
+        anchors.fill: parent
+        source:       (themeColors.bgImage && themeColors.bgImage !== "")
+                      ? Qt.resolvedUrl("images/" + themeColors.bgImage) : ""
+        fillMode:     Image.PreserveAspectCrop
+        visible:      status === Image.Ready
+        asynchronous: true
     }
 
     ColumnLayout {
