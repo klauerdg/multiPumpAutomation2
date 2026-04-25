@@ -115,8 +115,8 @@ ApplicationWindow {
         name:               "northeastern",
         pageBg:             "#00000000",   // transparent — husky photo shows through
         toolbarBg:          "#c8102e",     // NU Red
-        cardBg:             "#CC000000",   // 80% black glass
-        cardBgSelected:     "#CC3a0000",   // dark blood-red glass when selected
+        cardBg:             "#99000000",   // 60% black glass
+        cardBgSelected:     "#993a0000",   // dark blood-red glass when selected
         cardBorder:         "#666666",
         cardBorderSelected: "#c8102e",
         buttonBg:           "#c8102e",
@@ -124,9 +124,9 @@ ApplicationWindow {
         timerColor:         "#ff8888",
         pausedColor:        "#ffaa44",
         stepColor:          "#88ff99",
-        primeActive:        "#CC550000",
-        primeInactive:      "#88000000",
-        inputBg:            "#CC111111",
+        primeActive:        "#99550000",
+        primeInactive:      "#77000000",
+        inputBg:            "#99111111",
         bgImage:            "husky.jpg"
     })
 
@@ -134,18 +134,18 @@ ApplicationWindow {
         name:               "transparent",
         pageBg:             "#00000000",   // transparent — electronics photo shows through
         toolbarBg:          "#AA000000",   // dark glass toolbar
-        cardBg:             "#66000000",   // 40% black glass
-        cardBgSelected:     "#88003355",   // blue-tinted glass when selected
-        cardBorder:         "#88ffffff",
+        cardBg:             "#99000000",   // 60% black glass
+        cardBgSelected:     "#99003355",   // blue-tinted glass when selected
+        cardBorder:         "#99ffffff",
         cardBorderSelected: "#CCffffff",
         buttonBg:           "#AA1a1a2e",
         buttonFlash:        "#CC1a1a2e",
         timerColor:         "#88ddff",
         pausedColor:        "#ffaa44",
         stepColor:          "#88ff88",
-        primeActive:        "#66002244",
-        primeInactive:      "#44000000",
-        inputBg:            "#55000000",
+        primeActive:        "#99002244",
+        primeInactive:      "#66000000",
+        inputBg:            "#77000000",
         bgImage:            "electronics.jpg"
     })
 
@@ -157,6 +157,7 @@ ApplicationWindow {
     property bool rainbowUnlocked:      false   // unlocked by clicking Nyan Cat
     property bool northeasternUnlocked: false   // unlocked by typing 1898 in any flow field
     property bool transparentUnlocked:  false   // unlocked by checkbox in Advanced dialog
+    property bool showHuskyPopup:       false   // shown whenever 1898 is entered in fun mode
     property bool showConfetti:         false
     property bool _isRainbow:           false
     property real lastPressY:           300
@@ -826,9 +827,9 @@ ApplicationWindow {
                     }
                 }
                 Button {
-                    text: "🌈 Rainbow"
+                    text: "Rainbow"
                     font.pixelSize: 14
-                    Layout.preferredWidth: 110
+                    Layout.preferredWidth: 100
                     visible: app.rainbowUnlocked
                     onClicked: themeDialog.loadEditor(app._rainbow)
                     background: Rectangle {
@@ -848,11 +849,11 @@ ApplicationWindow {
                     }
                 }
                 Button {
-                    text: "🐺 Northeastern"
+                    text: "Northeastern"
                     font.pixelSize: 14
-                    Layout.preferredWidth: 140
+                    Layout.preferredWidth: 120
                     visible: app.northeasternUnlocked
-                    onClicked: app.switchTheme(app._northeastern)
+                    onClicked: themeDialog.loadEditor(app._northeastern)
                     background: Rectangle {
                         radius: 4
                         color: "#c8102e"
@@ -865,11 +866,11 @@ ApplicationWindow {
                     }
                 }
                 Button {
-                    text: "📷 Transparent"
+                    text: "Transparent"
                     font.pixelSize: 14
-                    Layout.preferredWidth: 130
+                    Layout.preferredWidth: 110
                     visible: app.transparentUnlocked
-                    onClicked: app.switchTheme(app._transparent)
+                    onClicked: themeDialog.loadEditor(app._transparent)
                     background: Rectangle {
                         radius: 4
                         color: "#333355"
@@ -1745,7 +1746,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
                 CheckBox {
                     id: transparentUnlockCheck
-                    text: "📷"
+                    text: "Transparent"
                     font.pixelSize: 16
                     checked: app.transparentUnlocked
                     onCheckedChanged: {
@@ -2498,6 +2499,61 @@ ApplicationWindow {
 
     // ── 1898 easter egg — "Go Huskies" popup ─────────────────────────────────
 
+    // Dim backdrop
+    Rectangle {
+        anchors.fill: parent
+        color: "#bb000000"
+        z: 9997
+        visible: app.showHuskyPopup
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { app.showHuskyPopup = false; huskyTimer.stop(); }
+        }
+    }
+
+    // Photo card
+    Rectangle {
+        id: huskyPopupCard
+        z: 9998
+        visible: app.showHuskyPopup
+        width:  340
+        height: 460
+        radius: 16
+        anchors.centerIn: parent
+        clip: true
+
+        Image {
+            anchors.fill: parent
+            source: Qt.resolvedUrl("images/go_huskies.jpg")
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+        }
+
+        // Tap anywhere on card to dismiss
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { app.showHuskyPopup = false; huskyTimer.stop(); }
+        }
+
+        // "Tap to close" hint
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 10
+            text: "tap to close"
+            font.pixelSize: 12
+            color: "#ccffffff"
+            style: Text.Outline
+            styleColor: "#88000000"
+        }
+    }
+
+    Timer {
+        id: huskyTimer
+        interval: 8000
+        onTriggered: app.showHuskyPopup = false
+    }
+
     /* ===================== Wiring on startup ===================== */
 
     Component.onCompleted: {
@@ -2537,6 +2593,8 @@ ApplicationWindow {
                     nuToast.visible = true;
                     nuToastTimer.restart();
                 }
+                app.showHuskyPopup = true;
+                huskyTimer.restart();
             }
         }
         setup.groupFlowField.textChanged.connect(function() { _checkNU(setup.groupFlowField.text); });
