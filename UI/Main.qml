@@ -270,7 +270,7 @@ ApplicationWindow {
                 // Always update rawFlow + display so resume/step logic stays correct
                 rc.rawFlow = v;
                 if (rc.setFlowValue) rc.setFlowValue.text = v.toFixed(2);
-                if (rc.ppsLabel)     rc.ppsLabel.text = (v * calFactor).toFixed(0);
+                if (rc.ppsLabel)     rc.ppsLabel.text = (v * calFactor * _ppsPerUlMin).toFixed(0);
                 // Only send to hardware if not paused (resume will pick up rawFlow)
                 if (!rc.paused && typeof backend !== "undefined" && backend.set_flow)
                     backend.set_flow(pid, v * calFactor);
@@ -1382,8 +1382,8 @@ ApplicationWindow {
     }
 
     // runtime array of 9 factors
-    // Default: 60 µL/min = 4000 pps  →  66.667 pps per µL/min
-    readonly property real _defaultCalFactor: 4000.0 / 60.0
+    // Display conversion: 60 µL/min = 4000 pps (used only for the run-card PPS label)
+    readonly property real _ppsPerUlMin: 4000.0 / 60.0
 
     property var pumpCalFactors: (function () {
         try {
@@ -1392,7 +1392,7 @@ ApplicationWindow {
                 return arr;
         } catch(e) {}
         var def = [];
-        for (var i = 0; i < 9; ++i) def.push(4000.0 / 60.0);
+        for (var i = 0; i < 9; ++i) def.push(1.0);   // 1.0 = no wear offset
         return def;
     })()
 
@@ -1402,12 +1402,12 @@ ApplicationWindow {
 
     function calibrationForPumpId(pid) {
         if (!pumpCalFactors || pid <= 0)
-            return _defaultCalFactor;
+            return 1.0;
         if (pid - 1 >= pumpCalFactors.length)
-            return _defaultCalFactor;
+            return 1.0;
         var f = pumpCalFactors[pid - 1];
         if (!f || f <= 0)
-            return _defaultCalFactor;
+            return 1.0;
         return f;
     }
 
@@ -1429,7 +1429,7 @@ ApplicationWindow {
                 continue;
 
             var factor = calibrationForPumpId(pid);
-            c.ppsLabel.text = (flowVal * factor).toFixed(0);
+            c.ppsLabel.text = (flowVal * factor * _ppsPerUlMin).toFixed(0);
         }
     }
 
@@ -1651,7 +1651,7 @@ ApplicationWindow {
             rc.objectName = "pumpId:" + pumpId;
 
             var factor = calibrationForPumpId(pumpId);
-            rc.ppsLabel.text = (f * factor).toFixed(0);
+            rc.ppsLabel.text = (f * factor * _ppsPerUlMin).toFixed(0);
 
             var mode    = sc.advMode;
             var summary = "";
@@ -1994,7 +1994,7 @@ ApplicationWindow {
                                 if (!arc.pumpStarted || arc.pumpStopped) continue;
                                 arc.rawFlow = newFlow;
                                 if (arc.setFlowValue) arc.setFlowValue.text = newFlow.toFixed(2);
-                                if (arc.ppsLabel)     arc.ppsLabel.text = (newFlow * advCal).toFixed(0);
+                                if (arc.ppsLabel)     arc.ppsLabel.text = (newFlow * advCal * _ppsPerUlMin).toFixed(0);
                                 if (!arc.paused && typeof backend !== "undefined" && backend.set_flow)
                                     backend.set_flow(advPid, newFlow * advCal);
                                 break;
@@ -2181,7 +2181,7 @@ ApplicationWindow {
                         c.setFlowValue.text = flowVal.toFixed(2);
 
                     if (c.ppsLabel)
-                        c.ppsLabel.text = (flowVal * stepFactor).toFixed(0);
+                        c.ppsLabel.text = (flowVal * stepFactor * _ppsPerUlMin).toFixed(0);
 
                     // Update rawFlow so any subsequent pause/resume restores the
                     // stepped rate rather than reverting to the original flow.
