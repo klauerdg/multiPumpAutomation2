@@ -1382,6 +1382,9 @@ ApplicationWindow {
     }
 
     // runtime array of 9 factors
+    // Default: 60 µL/min = 4000 pps  →  66.667 pps per µL/min
+    readonly property real _defaultCalFactor: 4000.0 / 60.0
+
     property var pumpCalFactors: (function () {
         try {
             var arr = JSON.parse(calibrationSettings.perPumpJson);
@@ -1389,7 +1392,7 @@ ApplicationWindow {
                 return arr;
         } catch(e) {}
         var def = [];
-        for (var i = 0; i < 9; ++i) def.push(1.0);
+        for (var i = 0; i < 9; ++i) def.push(4000.0 / 60.0);
         return def;
     })()
 
@@ -1399,12 +1402,12 @@ ApplicationWindow {
 
     function calibrationForPumpId(pid) {
         if (!pumpCalFactors || pid <= 0)
-            return 1.0;
+            return _defaultCalFactor;
         if (pid - 1 >= pumpCalFactors.length)
-            return 1.0;
+            return _defaultCalFactor;
         var f = pumpCalFactors[pid - 1];
         if (!f || f <= 0)
-            return 1.0;
+            return _defaultCalFactor;
         return f;
     }
 
