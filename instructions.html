@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Pump Automation — User Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #212121;
+    background: #f5f7fa;
+  }
+
+  /* ── Sidebar nav ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0;
+    width: 220px;
+    height: 100vh;
+    background: #1565c0;
+    color: #fff;
+    overflow-y: auto;
+    padding: 20px 0;
+    z-index: 100;
+  }
+  nav h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0 18px 10px;
+    opacity: 0.7;
+  }
+  nav a {
+    display: block;
+    padding: 7px 18px;
+    color: #e3f2fd;
+    text-decoration: none;
+    font-size: 13.5px;
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  nav a:hover { background: rgba(255,255,255,0.12); border-left-color: #90caf9; }
+  nav a.sub { padding-left: 32px; font-size: 13px; opacity: 0.85; }
+  nav .nav-title {
+    font-size: 15px;
+    font-weight: bold;
+    padding: 0 18px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+
+  /* ── Main content ── */
+  main {
+    margin-left: 220px;
+    padding: 36px 48px 60px;
+    max-width: 900px;
+  }
+
+  h1 { font-size: 28px; color: #1565c0; margin-bottom: 6px; }
+  .subtitle { color: #546e7a; font-size: 14px; margin-bottom: 36px; }
+
+  h2 {
+    font-size: 20px;
+    color: #1565c0;
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #bbdefb;
+  }
+  h3 { font-size: 16px; color: #37474f; margin: 22px 0 8px; }
+
+  p { margin-bottom: 10px; }
+  ul, ol { margin: 8px 0 12px 22px; }
+  li { margin-bottom: 5px; }
+
+  /* ── Callout boxes ── */
+  .note, .tip, .warn {
+    border-left: 4px solid;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .note  { background: #e3f2fd; border-color: #1565c0; }
+  .tip   { background: #e8f5e9; border-color: #2e7d32; }
+  .warn  { background: #fff3e0; border-color: #e65100; }
+  .note strong, .tip strong, .warn strong { display: block; margin-bottom: 3px; }
+
+  /* ── Button labels ── */
+  kbd {
+    display: inline-block;
+    background: #546e7a;
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  kbd.green  { background: #2e7d32; }
+  kbd.red    { background: #c62828; }
+  kbd.orange { background: #e65100; }
+  kbd.grey   { background: #607d8b; }
+
+  /* ── Steps table ── */
+  .steps { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  .steps th {
+    background: #1565c0;
+    color: #fff;
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .steps td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+  .steps tr:last-child td { border-bottom: none; }
+  .steps tr:nth-child(even) td { background: #f0f4ff; }
+
+  /* ── Quick-ref cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #cfd8dc;
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  }
+  .card h4 { font-size: 14px; color: #1565c0; margin-bottom: 6px; }
+  .card p  { font-size: 13px; margin: 0; }
+
+  hr { border: none; border-top: 1px solid #cfd8dc; margin: 36px 0; }
+
+  /* ── Anchor offset for fixed nav ── */
+  :target { scroll-margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+<nav>
+  <div class="nav-title">Multi-Pump<br>Automation</div>
+  <h2>Contents</h2>
+  <a href="#overview">Overview</a>
+  <a href="#hardware">Hardware Layout</a>
+  <a href="#quickstart">Quick Start</a>
+  <a href="#setup-page">Setup Page</a>
+  <a class="sub" href="#pump-cards">Pump Cards</a>
+  <a class="sub" href="#group-flow">Group Flow</a>
+  <a class="sub" href="#prime">Priming</a>
+  <a class="sub" href="#advanced">Advanced Settings</a>
+  <a class="sub" href="#presets">Presets</a>
+  <a class="sub" href="#calibration">Calibration</a>
+  <a href="#run-page">Run Page</a>
+  <a class="sub" href="#starting">Starting Pumps</a>
+  <a class="sub" href="#pausing">Pausing &amp; Resuming</a>
+  <a class="sub" href="#stopping">Stopping</a>
+  <a class="sub" href="#history">History Log</a>
+  <a href="#flow-modes">Flow Modes</a>
+  <a class="sub" href="#constant">Constant</a>
+  <a class="sub" href="#pulsatile">Pulsatile</a>
+  <a href="#themes">Themes &amp; Fun Mode</a>
+  <a href="#tips">Tips &amp; Troubleshooting</a>
+</nav>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════════ -->
+<main>
+
+<h1>Multi-Pump Automation</h1>
+<p class="subtitle">User Guide &nbsp;|&nbsp; Northeastern University Daily Lab &nbsp;|&nbsp; Capstone 2026</p>
+
+<!-- ────────────────────────── OVERVIEW ────────────────────────── -->
+<h2 id="overview">Overview</h2>
+<p>
+  This application controls up to <strong>9 peristaltic pumps</strong> simultaneously
+  from a Raspberry Pi touchscreen. Each pump can be configured independently for
+  flow rate, run duration, and flow profile (constant or pulsatile), then started,
+  paused, resumed, and stopped — individually or as a group.
+</p>
+<p>The interface has two main pages:</p>
+<div class="card-grid">
+  <div class="card">
+    <h4>Setup</h4>
+    <p>Configure each pump's flow rate, duration, and waveform before a run. Save and load presets.</p>
+  </div>
+  <div class="card">
+    <h4>Run</h4>
+    <p>Monitor and control live pump operation. View PPS, elapsed time, and per-pump status.</p>
+  </div>
+</div>
+
+<!-- ────────────────────────── HARDWARE ────────────────────────── -->
+<h2 id="hardware">Hardware Layout</h2>
+<p>
+  Nine pumps are split across two Arduino controllers. The application
+  labels them <strong>Pump 1–9</strong> on screen, which map to physical pump
+  positions on your hardware rig. Ensure both Arduinos are connected via USB
+  before launching the software.
+</p>
+<div class="note">
+  <strong>Note</strong>
+  If a pump does not respond, check that the correct serial ports are configured
+  in <code>backend.py</code> (<code>SERIAL_PORT_A</code> and <code>SERIAL_PORT_B</code>).
+</div>
+
+<!-- ────────────────────────── QUICK START ────────────────────────── -->
+<h2 id="quickstart">Quick Start</h2>
+<ol>
+  <li>Launch the application (<code>python3 main.py</code> or double-click the launcher).</li>
+  <li>On the <strong>Setup</strong> page, enter a flow rate for each pump you want to use.</li>
+  <li>Tap <kbd class="green">Ready to Run</kbd> in the toolbar — this transfers settings to the Run page.</li>
+  <li>On the <strong>Run</strong> page, tap <kbd class="green">Start All</kbd> to begin all pumps simultaneously.</li>
+  <li>Monitor flow and status on each pump card. Use <kbd>Pause All</kbd> or <kbd class="red">Stop All</kbd> as needed.</li>
+</ol>
+
+<div class="tip">
+  <strong>Tip</strong>
+  Pump cards with a flow rate of 0 (or left blank) are automatically hidden on the Run page — only active pumps are shown.
+</div>
+
+<!-- ────────────────────────── SETUP PAGE ────────────────────────── -->
+<h2 id="setup-page">Setup Page</h2>
+<p>
+  The Setup page is where you configure every pump before starting a run.
+  The toolbar at the top provides global controls; the nine pump cards below
+  let you fine-tune each pump individually.
+</p>
+
+<h3 id="pump-cards">Pump Cards</h3>
+<p>Each pump card contains:</p>
+<table class="steps">
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td><strong>Flow (µL/min)</strong></td><td>Target volumetric flow rate for this pump. Leave at 0 to exclude the pump from the run.</td></tr>
+  <tr><td><strong>Duration (min)</strong></td><td>How long the pump runs. Leave blank or 0 for continuous (no time limit).</td></tr>
+  <tr><td><strong>Select checkbox</strong></td><td>Marks this pump for group operations (Apply to Selected, Pause Selected, etc.).</td></tr>
+  <tr><td><strong>Prime button</strong></td><td>Runs the pump at the prime flow rate for fast tube priming. Tap again to stop.</td></tr>
+</table>
+
+<h3 id="group-flow">Group Flow</h3>
+<p>
+  The <strong>Flow</strong> and <strong>Prime</strong> fields in the top toolbar apply values
+  to <em>all selected pump cards</em> at once:
+</p>
+<ul>
+  <li>Enter a value in the <strong>Flow</strong> box, select the pumps you want, then tap
+      <kbd>Apply to Selected</kbd>.</li>
+  <li>The <strong>Prime</strong> field sets the flow rate used when any pump's Prime button is pressed
+      (default 15.00 µL/min).</li>
+</ul>
+
+<h3 id="prime">Priming</h3>
+<p>
+  Priming fills the tubing before a real run. Each pump card has a
+  <kbd>Prime</kbd> toggle button. While priming:
+</p>
+<ul>
+  <li>The pump runs at the prime flow rate set in the toolbar.</li>
+  <li>Tap the button again to stop priming.</li>
+  <li>Priming automatically stops when you tap <kbd class="green">Ready to Run</kbd>.</li>
+</ul>
+<div class="warn">
+  <strong>Important</strong>
+  Do not tap <kbd class="green">Ready to Run</kbd> while a pump is still actively priming
+  — stop priming first to avoid carrying incorrect state into the run.
+</div>
+
+<h3 id="advanced">Advanced Settings</h3>
+<p>
+  Tap <kbd>Advanced</kbd> in the toolbar to open the Advanced Settings dialog.
+  This lets you set a non-constant flow profile for all selected pumps.
+</p>
+<table class="steps">
+  <tr><th>Setting</th><th>Description</th></tr>
+  <tr><td><strong>Mode</strong></td><td>Choose <em>Constant</em> or <em>Pulsatile</em> (see <a href="#flow-modes">Flow Modes</a>).</td></tr>
+  <tr><td><strong>Base Flow</strong></td><td>Average or minimum flow rate (µL/min).</td></tr>
+  <tr><td><strong>Max Flow</strong></td><td>Peak flow rate for pulsatile waveforms.</td></tr>
+  <tr><td><strong>Period (s)</strong></td><td>Time for one complete waveform cycle (pulsatile only).</td></tr>
+  <tr><td><strong>Waveform</strong></td><td>Square wave or Sinusoidal (pulsatile only).</td></tr>
+  <tr><td><strong>Total Time (min)</strong></td><td>Duration override for the selected pumps.</td></tr>
+  <tr><td><strong>Flow Step</strong></td><td>If enabled, the pump switches to a different flow rate after a set number of minutes into the run.</td></tr>
+</table>
+<p>Tap <kbd>Apply</kbd> inside the dialog to save these settings to the selected pumps.</p>
+
+<h3 id="presets">Presets</h3>
+<p>
+  Presets save the complete configuration of all nine pumps (flow rates,
+  durations, modes, waveform parameters) so you can restore them instantly.
+</p>
+<ul>
+  <li><kbd>Save Preset</kbd> — enter a name and tap Save. The preset is stored on disk and persists across restarts.</li>
+  <li><kbd>Load Preset</kbd> — pick a preset from the list. Tap <strong>Load</strong> to apply it to the Setup page, or <strong>Delete</strong> to remove it permanently.</li>
+</ul>
+
+<h3 id="calibration">Per-Pump Calibration</h3>
+<p>
+  Tap <kbd>Calibration</kbd> to open the calibration dialog. This lets you enter
+  a multiplier for each pump to compensate for mechanical wear or tubing variations.
+  A value of <strong>1.0</strong> means no correction (default).
+</p>
+<div class="note">
+  <strong>Note</strong>
+  Calibration factors are purely a wear-offset multiplier applied on top of the
+  standard 60 µL/min = 4000 PPS conversion. They do not change the base conversion rate.
+</div>
+
+<!-- ────────────────────────── RUN PAGE ────────────────────────── -->
+<h2 id="run-page">Run Page</h2>
+<p>
+  Navigate to the Run page by tapping <kbd class="green">Ready to Run</kbd> on the
+  Setup page. You will see a card for each active pump, a global timer, and
+  a toolbar of run controls.
+</p>
+
+<h3>Run Card Display</h3>
+<table class="steps">
+  <tr><th>Display item</th><th>Meaning</th></tr>
+  <tr><td><strong>Flow (µL/min)</strong></td><td>Current target flow rate for this pump.</td></tr>
+  <tr><td><strong>PPS</strong></td><td>Pulse-per-second equivalent sent to the Arduino (60 µL/min = 4000 PPS).</td></tr>
+  <tr><td><strong>Status line</strong></td><td>Shows Running, Paused, Step change, Pulsatile waveform info, or Run complete.</td></tr>
+  <tr><td><strong>Select checkbox</strong></td><td>Marks this pump for selective pause/resume/start operations.</td></tr>
+</table>
+
+<h3 id="starting">Starting Pumps</h3>
+<div class="card-grid">
+  <div class="card">
+    <h4>Start All</h4>
+    <p>Starts every visible pump simultaneously. The button label switches to <strong>Stop All</strong> once clicked.</p>
+  </div>
+  <div class="card">
+    <h4>Start Selected</h4>
+    <p>Starts only the pumps whose Select checkbox is ticked. Useful for staggered starts.</p>
+  </div>
+</div>
+
+<h3 id="pausing">Pausing &amp; Resuming</h3>
+<div class="card-grid">
+  <div class="card">
+    <h4>Pause All</h4>
+    <p>Immediately stops all running pumps and freezes their individual timers.</p>
+  </div>
+  <div class="card">
+    <h4>Pause Selected</h4>
+    <p>Pauses only the pumps whose Select checkbox is ticked.</p>
+  </div>
+  <div class="card">
+    <h4>Resume Selected</h4>
+    <p>Restarts selected paused pumps, continuing from where they left off — including remaining duration.</p>
+  </div>
+</div>
+<div class="tip">
+  <strong>Tip</strong>
+  When you resume a pump running a pulsatile waveform, it picks up at the correct
+  remaining duration — it does not restart the waveform from the beginning.
+</div>
+
+<h3 id="stopping">Stopping</h3>
+<ul>
+  <li><kbd class="red">Stop All</kbd> (toolbar) — halts all pumps and marks them complete.</li>
+  <li>The <kbd class="red">Start All / Stop All</kbd> toggle button at the top-left also stops everything once a run has begun.</li>
+  <li>After stopping, return to the Setup page and tap <kbd class="green">Ready to Run</kbd> again to prepare a new run.</li>
+</ul>
+
+<h3 id="history">History Log</h3>
+<p>
+  Tap <kbd>History</kbd> to open a scrollable log of run events —
+  start, pause, resume, stop, and flow changes — timestamped for the
+  current session. The log is cleared when the application is restarted.
+</p>
+
+<!-- ────────────────────────── FLOW MODES ────────────────────────── -->
+<h2 id="flow-modes">Flow Modes</h2>
+
+<h3 id="constant">Constant Flow</h3>
+<p>
+  The pump runs at a fixed flow rate (µL/min) for the entire duration.
+  This is the default mode. Configure it by simply entering a flow rate
+  on the pump card.
+</p>
+
+<h3 id="pulsatile">Pulsatile Flow</h3>
+<p>
+  The pump alternates between a base (low) flow and a peak (high) flow on
+  a repeating cycle — simulating physiological pulsatile conditions.
+  Set via <kbd>Advanced</kbd> → Mode: Pulsatile.
+</p>
+<table class="steps">
+  <tr><th>Waveform</th><th>Behaviour</th></tr>
+  <tr><td><strong>Square</strong></td><td>Instantaneously switches between base flow and peak flow every half-period.</td></tr>
+  <tr><td><strong>Sinusoidal</strong></td><td>Smoothly ramps between base and peak flow following a sine curve over each period.</td></tr>
+</table>
+<div class="note">
+  <strong>Example</strong>
+  Base: 10 µL/min, Max: 60 µL/min, Period: 2 s, Square wave →
+  the pump runs at 10 µL/min for 1 s then 60 µL/min for 1 s, repeating continuously.
+</div>
+
+<h3>Flow Step</h3>
+<p>
+  Available for any mode via Advanced Settings. After a specified number of
+  minutes, the pump automatically switches to a different target flow rate.
+  The step change is shown in the run card's status line.
+</p>
+
+<!-- ────────────────────────── THEMES ────────────────────────── -->
+<h2 id="themes">Themes &amp; Fun Mode</h2>
+<p>
+  Open <strong>Settings</strong> (gear icon in the navigation bar) to change the
+  visual theme. Built-in themes include light blue, dark, and high-contrast options.
+  Tap <kbd>Apply</kbd> in the Settings dialog to activate the selected theme.
+</p>
+
+<h3>Fun Mode</h3>
+<p>
+  Toggle <strong>Fun Mode</strong> in the Settings dialog to enable extra visual effects:
+</p>
+<ul>
+  <li>The toolbar cycles through rainbow colours.</li>
+  <li><strong>Nyan Cat</strong> flies across the screen periodically, heading toward wherever you last touched the screen.</li>
+  <li>Clicking Nyan Cat unlocks the <strong>Rainbow</strong> theme.</li>
+</ul>
+
+<h3>Secret Themes</h3>
+<table class="steps">
+  <tr><th>Theme</th><th>How to unlock</th><th>Description</th></tr>
+  <tr>
+    <td><strong>Rainbow</strong></td>
+    <td>Click the Nyan Cat while Fun Mode is on.</td>
+    <td>Vibrant multicolour cycling toolbar and bright accent colours.</td>
+  </tr>
+  <tr>
+    <td><strong>Northeastern</strong></td>
+    <td>Type <strong>1898</strong> in any flow field while Fun Mode is on.</td>
+    <td>NU red toolbar, dark glass pump cards, optional background photo (husky.jpg).</td>
+  </tr>
+  <tr>
+    <td><strong>Transparent</strong></td>
+    <td>Check the <strong>Transparent</strong> checkbox in the Advanced Settings dialog while Fun Mode is on.</td>
+    <td>Dark semi-transparent glass cards over an optional background photo (electronics.jpg).</td>
+  </tr>
+</table>
+<div class="tip">
+  <strong>Background images</strong>
+  Place <code>husky.jpg</code> and/or <code>electronics.jpg</code> in the
+  <code>UI/images/</code> folder on the Pi to enable the photo backgrounds for
+  these themes. The themes still work without the files — cards just show a
+  solid colour instead.
+</div>
+
+<!-- ────────────────────────── TIPS ────────────────────────── -->
+<h2 id="tips">Tips &amp; Troubleshooting</h2>
+
+<table class="steps">
+  <tr><th>Symptom</th><th>Likely cause &amp; fix</th></tr>
+  <tr>
+    <td>Pump doesn't start after pressing Start All</td>
+    <td>Check USB connections to both Arduinos. Verify serial ports in <code>backend.py</code>. Check the terminal for error messages.</td>
+  </tr>
+  <tr>
+    <td>PPS shown on run card seems wrong</td>
+    <td>The displayed PPS uses 60 µL/min = 4000 PPS. If you've entered a per-pump calibration factor other than 1.0, the display includes that multiplier.</td>
+  </tr>
+  <tr>
+    <td>Pulsatile pump doesn't resume correctly</td>
+    <td>Make sure you use <kbd>Resume Selected</kbd>, not <kbd>Start Selected</kbd>, after a pause. Resume restores remaining duration; Start would restart from the full duration.</td>
+  </tr>
+  <tr>
+    <td>Preset not saving</td>
+    <td>Ensure the application has write permission to the directory. Check that the preset name field is not empty before tapping Save.</td>
+  </tr>
+  <tr>
+    <td>Background image not showing in Northeastern / Transparent theme</td>
+    <td>Copy the appropriate JPG into <code>UI/images/</code> on the Pi (see above). The app silently falls back to a solid colour if the file is missing.</td>
+  </tr>
+  <tr>
+    <td>Keyboard doesn't appear when tapping a text field</td>
+    <td>The on-screen keyboard should appear automatically. If it doesn't, tap the field a second time. A physical USB keyboard can also be used.</td>
+  </tr>
+  <tr>
+    <td>All pumps show "Run complete" immediately</td>
+    <td>Check that durations are set correctly. A duration of 0 means continuous (no limit); very small values (e.g. 0.01 min) will complete almost instantly.</td>
+  </tr>
+</table>
+
+<hr>
+<p style="font-size:13px;color:#90a4ae;text-align:center;">
+  Multi-Pump Automation &nbsp;&bull;&nbsp; Northeastern University Daily Lab &nbsp;&bull;&nbsp; 2026
+</p>
+
+</main>
+</body>
+</html>
