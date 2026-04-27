@@ -4,118 +4,168 @@ import QtQuick.Layouts 1.15
 
 Item {
     id: root
-    implicitWidth: 260
-    implicitHeight: 130
+    implicitWidth:  240
+    implicitHeight: 120
 
-    property alias selectCheck: selectCheck
-    property alias titleLabel: titleLabel
+    property alias titleLabel:   titleLabel
     property alias setFlowValue: setFlowValue
-    property alias ppsLabel: ppsLabel
-    property alias infoLabel: infoLabel
-    property alias timerLabel: timerLabel
-    property alias stepLabel: stepLabel
+    property alias ppsLabel:     ppsLabel
+    property alias infoLabel:    infoLabel
+    property alias timerLabel:   timerLabel
+    property alias stepLabel:    stepLabel
 
-    property int pumpEndSec: 0       // seconds from run-start when this pump finishes (0 = no limit)
-    property int pumpStepSec: -1     // seconds from run-start when step change fires (-1 = none)
-    property bool pumpStopped: false // true once backend.stop() has been called for this pump
+    property bool   selected: false
+    property bool   paused:   false
+    property double rawFlow:  0.0
+
+    property int  pumpEndSec:      0
+    property int  pumpStepSec:    -1
+    property bool pumpStopped:  false
+    property int  pumpPausedAt:   -1
+    property int  pumpPausedAccum: 0
+    property int  pumpDurationSec: 0
+    property bool pumpStarted:    false
+    property int  pumpStartedAt:  0     // elapsedSec value when this pump was started
+
+    property var themeColors: ({
+        cardBg:             "#ffffff",
+        cardBgSelected:     "#dce8f0",
+        cardBorder:         "#b0bec5",
+        cardBorderSelected: "#455a64",
+        timerColor:         "#1565c0",
+        pausedColor:        "#bf360c",
+        stepColor:          "#2e7d32",
+        inputBg:            "#ffffff"
+    })
+
+    property color _bg:        "#ffffff"
+    property color _bgSel:     "#dce8f0"
+    property color _border:    "#b0bec5"
+    property color _borderSel: "#455a64"
+    property color _cardText:  "#000000"
+    property color _timerClr:  "#1565c0"
+    property color _pausedClr: "#bf360c"
+    property color _stepClr:   "#2e7d32"
+
+    function _luma(hex) {
+        if (!hex || hex.length < 7) return 0.5;
+        var r = parseInt(hex.slice(1,3),16)/255;
+        var g = parseInt(hex.slice(3,5),16)/255;
+        var b = parseInt(hex.slice(5,7),16)/255;
+        return 0.299*r + 0.587*g + 0.114*b;
+    }
+    function _contrast(hex) { return _luma(hex) > 0.5 ? "#000000" : "#ffffff"; }
+
+    function _applyTheme() {
+        _bg        = themeColors.cardBg             || "#ffffff";
+        _bgSel     = themeColors.cardBgSelected      || "#dce8f0";
+        _border    = themeColors.cardBorder          || "#b0bec5";
+        _borderSel = themeColors.cardBorderSelected  || "#455a64";
+        _cardText  = _contrast(themeColors.cardBg    || "#ffffff");
+        _timerClr  = themeColors.timerColor          || "#1565c0";
+        _pausedClr = themeColors.pausedColor         || "#bf360c";
+        _stepClr   = themeColors.stepColor           || "#2e7d32";
+    }
+
+    onThemeColorsChanged: _applyTheme()
+    Component.onCompleted: _applyTheme()
 
     Rectangle {
         anchors.fill: parent
         radius: 8
-        color: "#ffffff"
-        border.color: "#cfd8dc"
+        color:        root.selected ? root._bgSel     : root._bg
+        border.color: root.selected ? root._borderSel : root._border
+        border.width: root.selected ? 2 : 1
+        Behavior on color        { ColorAnimation { duration: 120 } }
+        Behavior on border.color { ColorAnimation { duration: 120 } }
+        MouseArea { anchors.fill: parent; onClicked: root.selected = !root.selected }
     }
 
     ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 5
+        anchors.fill:    parent
+        anchors.margins: 6
         spacing: 2
 
         RowLayout {
-            spacing: 4
-            CheckBox { id: selectCheck }
+            spacing: 6
+            Layout.fillWidth: true
+
             Label {
-                id: titleLabel
-                text: "Pump"
-                font.bold: true
+                id:             titleLabel
+                text:           "Pump"
+                font.bold:      true
+                font.pixelSize: 14
+                color:          root._cardText
+            }
+            Label {
+                text:           "\u25cf Started"
                 font.pixelSize: 12
+                color:          "#2e7d32"
+                visible:        root.pumpStarted && !root.pumpStopped
             }
             Item { Layout.fillWidth: true }
         }
 
         RowLayout {
             spacing: 4
-            Label { text: "Set:"; font.pixelSize: 11 }
-
+            Label { text: "Set:";    font.pixelSize: 13; color: root._cardText }
             Label {
-                id: setFlowValue
-                text: "0.00"
-                font.bold: true
-                font.pixelSize: 11
+                id:             setFlowValue
+                text:           "0.00"
+                font.bold:      true
+                font.pixelSize: 13
+                color:          root._cardText
             }
-
+            Label { text: "µL/min"; font.pixelSize: 13; color: Qt.alpha(root._cardText, 0.6) }
+            Label { text: "•";      font.pixelSize: 13; color: Qt.alpha(root._cardText, 0.4) }
+            Label { text: "pps:";   font.pixelSize: 13; color: root._cardText }
             Label {
-                text: "µL/min"
-                font.pixelSize: 11
-                color: "#555"
+                id:             ppsLabel
+                text:           "0"
+                font.bold:      true
+                font.pixelSize: 13
+                color:          root._cardText
             }
-
-            Label {
-                text: "•"
-                font.pixelSize: 11
-                color: "#999"
-            }
-
-            Label {
-                text: "pps:"
-                font.pixelSize: 11
-            }
-
-            Label {
-                id: ppsLabel
-                text: "0"
-                font.bold: true
-                font.pixelSize: 11
-            }
-
             Item { Layout.fillWidth: true }
         }
 
         Label {
-            id: infoLabel
-            text: ""      // e.g. "Constant • 5.0 min • Change to 22.00 µL/min at 1.0 min"
-            font.pixelSize: 11
-            color: "#666"
+            id:             infoLabel
+            text:           ""
+            font.pixelSize: 13
+            color:          Qt.alpha(root._cardText, 0.65)
             Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignLeft
+            wrapMode:       Text.WordWrap
         }
 
-        // Per-pump countdown timer (shown only during automation)
-        Label {
-            id: timerLabel
-            text: ""
-            font.pixelSize: 12
-            font.bold: true
-            color: "#1565c0"           // blue
-            Layout.fillWidth: true
-            visible: text !== ""
+        RowLayout {
+            spacing: 6
+            visible: timerLabel.text !== "" || root.paused
+
+            Label {
+                id:             timerLabel
+                text:           ""
+                font.pixelSize: 14
+                font.bold:      true
+                color:          root._timerClr
+                visible:        text !== ""
+            }
+            Label {
+                text:           "Paused"
+                font.pixelSize: 13
+                font.bold:      true
+                color:          root._pausedClr
+                visible:        root.paused
+            }
         }
 
-        // Step-change countdown (shown only when step is configured)
         Label {
-            id: stepLabel
-            text: ""
-            font.pixelSize: 11
-            color: "#e65100"           // orange
+            id:             stepLabel
+            text:           ""
+            font.pixelSize: 13
+            color:          root._stepClr
             Layout.fillWidth: true
-            visible: text !== ""
+            visible:        text !== ""
         }
     }
 }
-
-
-
-
-
-

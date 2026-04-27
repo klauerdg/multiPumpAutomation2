@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import threading
+import subprocess
 from typing import Optional, Dict, List
 
 import serial
@@ -12,15 +13,20 @@ from serial.tools import list_ports
 from PySide6.QtCore import QObject, Slot, Signal
 
 # -------- Serial defaults (TWO ARDUINOS) --------
-# Change these COM ports to match what you see in Arduino IDE / Device Manager.
-DEFAULT_PORT_A = "COM4" if sys.platform.startswith("win") else "/dev/ttyACM0"
-DEFAULT_PORT_B = "COM6" if sys.platform.startswith("win") else "/dev/ttyACM2"
+# On Linux/Raspberry Pi, persistent udev symlinks are used so port names never change
+# when Arduinos are reconnected or swapped. See /etc/udev/rules.d/99-pumps.rules.
+# Ard1 serial: 0353638323635190C302 -> /dev/ttyArd1
+# Ard2 serial: 03536383136351303293 -> /dev/ttyArd2
+DEFAULT_PORT_ARD1 = "COM4" if sys.platform.startswith("win") else "/dev/ttyArd1"
+DEFAULT_PORT_ARD2 = "COM6" if sys.platform.startswith("win") else "/dev/ttyArd2"
 
-SERIAL_PORT_A = os.environ.get("PUMP_SERIAL_PORT_A", DEFAULT_PORT_A)
-SERIAL_PORT_B = os.environ.get("PUMP_SERIAL_PORT_B", DEFAULT_PORT_B)
+SERIAL_PORT_ARD1 = os.environ.get("PUMP_SERIAL_PORT_ARD1", DEFAULT_PORT_ARD1)
+SERIAL_PORT_ARD2 = os.environ.get("PUMP_SERIAL_PORT_ARD2", DEFAULT_PORT_ARD2)
 
-# Backward-compatible name (used as default in PumpLink)
-SERIAL_PORT = SERIAL_PORT_A
+# Backward-compatible aliases
+SERIAL_PORT_A = SERIAL_PORT_ARD1
+SERIAL_PORT_B = SERIAL_PORT_ARD2
+SERIAL_PORT   = SERIAL_PORT_ARD1
 
 BAUD = 115200
 OPEN_RETRY_SEC = 2.0
@@ -263,6 +269,8 @@ class QBackend(QObject):
         # saved flows for "pause selected" so we can resume
         self.paused_flows: Dict[int, float] = {}
         self._last_error = ""
+        # Sound subprocess tracking: name -> Popen
+        self._sound_procs: Dict[str, subprocess.Popen] = {}
 
     # ---------- Internal helpers ----------
 
@@ -326,14 +334,26 @@ class QBackend(QObject):
     @Slot("QVariant")
     @Slot(int)
     @Slot(float)
-    def prime(self, pump):
-        """Prime ON: UI toggles, Arduino runs until stop()."""
+    @Slot(int, float)
+    @Slot(float, float)
+    def prime(self, pump, pps=0.0):
+        """Prime ON.
+
+        If *pps* > 0 the pump is driven at that calibrated step rate via the
+        normal set_flow command so that the per-pump calibration factor is
+        respected.  If *pps* is omitted or 0 the hardware full-speed prime
+        command is used as a fallback.
+        """
         p = int(pump)
         link, local = self._route_pump(p)
         if not link:
             return
-        print(f"[QBackend] prime(global={p} -> local={local})")
-        link.prime(local)
+        if pps > 0:
+            print(f"[QBackend] prime(global={p} -> local={local}, pps={pps})")
+            link.set_flow(local, float(pps))
+        else:
+            print(f"[QBackend] prime(global={p} -> local={local}, full-speed)")
+            link.prime(local)
 
     @Slot("QVariant")
     @Slot(int)
@@ -539,3 +559,130 @@ class QBackend(QObject):
             f"[QBackend] set_calibration(global={p} -> local={local}, "
             f"ul_per_rev={float(ul_per_rev)})  (no-op)"
         )
+
+    # ---------- Preset file I/O ----------
+
+    @Slot(str)
+    def save_presets(self, json_str: str):
+        """Write preset JSON to presets.json next to main.py."""
+        import os, json
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets.json")
+        try:
+            with open(path, "w") as f:
+                f.write(json_str)
+            print(f"[QBackend] Presets saved to {path}")
+        except Exception as e:
+            print(f"[QBackend] Failed to save presets: {e}")
+
+    @Slot(result=str)
+    def load_presets(self) -> str:
+        """Read preset JSON from presets.json next to main.py."""
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets.json")
+        try:
+            with open(path) as f:
+                return f.read()
+        except Exception:
+            return "{}"
+
+    # ---------- Theme file I/O ----------
+
+    @Slot(str)
+    def save_theme(self, json_str: str):
+        """Write theme JSON to theme.json next to main.py."""
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme.json")
+        try:
+            with open(path, "w") as f:
+                f.write(json_str)
+            print(f"[QBackend] Theme saved to {path}")
+        except Exception as e:
+            print(f"[QBackend] Failed to save theme: {e}")
+
+    @Slot(result=str)
+    def load_theme(self) -> str:
+        """Read theme JSON from theme.json next to main.py."""
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme.json")
+        try:
+            with open(path) as f:
+                return f.read()
+        except Exception:
+            return "{}"
+
+    # ---------- Run log file I/O ----------
+
+    @Slot(str, str)
+    def save_run_log(self, name: str, content: str):
+        """Save a plain-text run history log to the logs/ directory."""
+        import os, re
+        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        # Sanitise filename
+        safe = re.sub(r'[^\w\-. ]', '_', name).strip() or "run_log"
+        if not safe.lower().endswith(".txt"):
+            safe += ".txt"
+        path = os.path.join(log_dir, safe)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[backend] Run log saved: {path}")
+
+    # ---------- Sound playback (subprocess / aplay) ----------
+
+    def _sounds_dir(self) -> str:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "UI", "sounds")
+
+    def _sound_path(self, name: str) -> str:
+        return os.path.join(self._sounds_dir(), f"{name}.wav")
+
+    def _kill_sound(self, name: str):
+        proc = self._sound_procs.pop(name, None)
+        if proc and proc.poll() is None:
+            try:
+                proc.kill()
+                proc.wait(timeout=1)
+            except Exception:
+                pass
+
+    @Slot(str)
+    def play_sound(self, name: str):
+        """Play a WAV file once via aplay (non-blocking). Silently ignored if file missing."""
+        path = self._sound_path(name)
+        if not os.path.isfile(path):
+            return
+        self._kill_sound(name)  # kill any previous one-shot of same name
+        try:
+            proc = subprocess.Popen(
+                ["aplay", "-q", path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._sound_procs[name] = proc
+        except FileNotFoundError:
+            print("[backend] aplay not found — install alsa-utils for sound support")
+        except Exception as e:
+            print(f"[backend] play_sound({name}) failed: {e}")
+
+    @Slot(str)
+    def play_sound_loop(self, name: str):
+        """Loop a WAV file indefinitely via aplay. Silently ignored if file missing."""
+        path = self._sound_path(name)
+        if not os.path.isfile(path):
+            return
+        self._kill_sound(name)
+        try:
+            proc = subprocess.Popen(
+                ["bash", "-c", f'while true; do aplay -q "{path}"; done'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._sound_procs[name] = proc
+        except FileNotFoundError:
+            print("[backend] bash/aplay not found — install alsa-utils for sound support")
+        except Exception as e:
+            print(f"[backend] play_sound_loop({name}) failed: {e}")
+
+    @Slot(str)
+    def stop_sound(self, name: str):
+        """Stop a playing or looping sound by name."""
+        self._kill_sound(name)
