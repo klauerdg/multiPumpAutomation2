@@ -1599,12 +1599,16 @@ ApplicationWindow {
 
     // Build Run page directly from Setup card advanced settings
     function populateRunFromSetup() {
-        var setupCards = [setup.pump1, setup.pump2, setup.pump3,
-                          setup.pump4, setup.pump5, setup.pump6,
-                          setup.pump7, setup.pump8, setup.pump9];
-        // Order matches the visual grid (left→right, top→bottom): r9 r8 r7 / r2 r3 r1 / r6 r5 r4
-        var runCards   = [run.r9, run.r8, run.r7, run.r2,
-                          run.r3, run.r1, run.r6, run.r5, run.r4];
+        // Both arrays follow the visual grid order (left→right, top→bottom).
+        // pump9=pc9 "Pump 1", pump8=pc8 "Pump 2", pump7=pc7 "Pump 3"
+        // pump2=pc2 "Pump 4", pump3=pc3 "Pump 5", pump1=pc1 "Pump 6"
+        // pump6=pc6 "Pump 7", pump5=pc5 "Pump 8", pump4=pc4 "Pump 9"
+        var setupCards = [setup.pump9, setup.pump8, setup.pump7,
+                          setup.pump2, setup.pump3, setup.pump1,
+                          setup.pump6, setup.pump5, setup.pump4];
+        var runCards   = [run.r9,      run.r8,      run.r7,
+                          run.r2,      run.r3,      run.r1,
+                          run.r6,      run.r5,      run.r4];
 
         // Clear run cards
         for (var k = 0; k < runCards.length; ++k) {
@@ -1648,7 +1652,7 @@ ApplicationWindow {
             rc.rawFlow = f;
             rc.opacity = 1.0;
 
-            var pumpId = i + 1;
+            var pumpId = sc.pumpId;   // physical hardware ID from PumpCardForm
             rc.objectName = "pumpId:" + pumpId;
 
             var factor = calibrationForPumpId(pumpId);
