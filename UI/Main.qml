@@ -1602,8 +1602,9 @@ ApplicationWindow {
         var setupCards = [setup.pump1, setup.pump2, setup.pump3,
                           setup.pump4, setup.pump5, setup.pump6,
                           setup.pump7, setup.pump8, setup.pump9];
-        var runCards   = [run.r1, run.r2, run.r3, run.r4,
-                          run.r5, run.r6, run.r7, run.r8, run.r9];
+        // Order matches the visual grid (left→right, top→bottom): r9 r8 r7 / r2 r3 r1 / r6 r5 r4
+        var runCards   = [run.r9, run.r8, run.r7, run.r2,
+                          run.r3, run.r1, run.r6, run.r5, run.r4];
 
         // Clear run cards
         for (var k = 0; k < runCards.length; ++k) {
