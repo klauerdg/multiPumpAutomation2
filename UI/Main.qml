@@ -307,6 +307,15 @@ ApplicationWindow {
         return -1;
     }
 
+    // Returns the visual label number string ("1"–"9") for a run card,
+    // e.g. "1" for the card titled "Pump 1". Used for history log display.
+    function labelFromRunCard(c) {
+        if (!c) return "?";
+        var t = c.titleLabel ? c.titleLabel.text : "";
+        if (t.indexOf("Pump ") === 0) return t.substring(5);
+        return pumpIdFromRunCard(c).toString();
+    }
+
     function selectedRunPumpIds() {
         var ids = [];
         var runCards = [run.r1, run.r2, run.r3, run.r4, run.r5, run.r6, run.r7, run.r8, run.r9];
@@ -2200,7 +2209,7 @@ ApplicationWindow {
                 c.infoLabel.text = text + " \u2022 " + tag;
 
                 run.statusLabel.text = "Flow changed at " + stepMinutes.toFixed(1) + " min.";
-                logEvent("Flow change", pumpIdFromRunCard(c).toString(),
+                logEvent("Flow change", labelFromRunCard(c),
                          "→ " + flowStr + " µL/min at " + stepMinutes.toFixed(1) + " min");
             }
             // --- per-pump countdown & step-change labels ---
@@ -2231,7 +2240,7 @@ ApplicationWindow {
                         var stopPid = pumpIdFromRunCard(pc);
                         if (stopPid > 0 && typeof backend !== "undefined" && backend.stop)
                             backend.stop(stopPid);
-                        logEvent("Timer complete", stopPid.toString(),
+                        logEvent("Timer complete", labelFromRunCard(pc),
                                  "stopped after " + (pc.pumpDurationSec / 60.0).toFixed(1) + " min");
                     }
                 }
@@ -2712,7 +2721,7 @@ ApplicationWindow {
 
             var ids = [];
             for (var ii = 0; ii < visible.length; ++ii)
-                ids.push(pumpIdFromRunCard(visible[ii]));
+                ids.push(labelFromRunCard(visible[ii]));
             logEvent("Start All", ids.join(", "), "");
         });
 
@@ -2728,6 +2737,10 @@ ApplicationWindow {
                 var c2 = allRunCards2[vi2];
                 if (c2 && c2.visible && c2.selected) selCards.push(c2);
             }
+
+            var selLabels = [];
+            for (var li = 0; li < selCards.length; ++li)
+                selLabels.push(labelFromRunCard(selCards[li]));
 
             _startCards(selCards);
 
@@ -2746,7 +2759,7 @@ ApplicationWindow {
             }
             run.allPumpsStarted = allStartedNow;
 
-            logEvent("Start Selected", selIds.join(", "), "");
+            logEvent("Start Selected", selLabels.join(", "), "");
         });
 
         // ── Pause All ─────────────────────────────────────────────────────────
@@ -2761,7 +2774,7 @@ ApplicationWindow {
                 if (!ac.paused) {
                     ac.paused = true;
                     ac.pumpPausedAt = elapsedSec;
-                    pausedIds.push(pumpIdFromRunCard(ac));
+                    pausedIds.push(labelFromRunCard(ac));
                 }
             }
             if (typeof backend !== "undefined" && backend.pauseAll)
@@ -2779,6 +2792,7 @@ ApplicationWindow {
             if (!ids.length) return;
             var runCards = [run.r1, run.r2, run.r3, run.r4,
                             run.r5, run.r6, run.r7, run.r8, run.r9];
+            var pauseLabels = [];
             for (var j = 0; j < runCards.length; ++j) {
                 var c3 = runCards[j];
                 if (!c3 || !c3.visible || !c3.selected || !c3.pumpStarted || c3.pumpStopped) continue;
@@ -2788,11 +2802,12 @@ ApplicationWindow {
                     c3.pumpPausedAt = elapsedSec;
                     if (pausedPumpIds.indexOf(pid) === -1)
                         pausedPumpIds.push(pid);
+                    pauseLabels.push(labelFromRunCard(c3));
                 }
             }
             if (typeof backend !== "undefined" && backend.pausePumps)
                 backend.pausePumps(ids);
-            logEvent("Pause Selected", ids.join(", "), "");
+            logEvent("Pause Selected", pauseLabels.join(", "), "");
         });
 
         // ── Resume Selected ───────────────────────────────────────────────────
@@ -2804,6 +2819,7 @@ ApplicationWindow {
                              run.r5, run.r6, run.r7, run.r8, run.r9];
 
             var resumedIds        = [];
+            var resumedLabels     = [];
             var pulsatileReIds    = [];
             var pulsatileReModes  = [];
             var pulsatileReShapes = [];
@@ -2836,6 +2852,7 @@ ApplicationWindow {
                 c4.paused = false;
 
                 resumedIds.push(pid4);
+                resumedLabels.push(labelFromRunCard(c4));
 
                 var idx4 = pausedPumpIds.indexOf(pid4);
                 if (idx4 !== -1) pausedPumpIds.splice(idx4, 1);
@@ -2878,7 +2895,7 @@ ApplicationWindow {
 
             if (resumedIds.length > 0) {
                 if (!runTimer.running) runTimer.start();
-                logEvent("Resume Selected", resumedIds.join(", "), "");
+                logEvent("Resume Selected", resumedLabels.join(", "), "");
             }
         });
 
